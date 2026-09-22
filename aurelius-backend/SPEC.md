@@ -31,56 +31,114 @@ No billing, no subscriptions.
     Database: **Cloudflare D1**. (User's existing hosting preference —
     already tried Wrangler CLI, prefers the least-friction deploy path.)
 
-## What's already built (this scaffold)
-- `schema.sql` — full D1 schema: doctors, procedures, videos,
-  prescriptions (the 48h link), video_progress (per-video completion +
-  seek/pause counters), progress_events (append-only audit log backing
-  the certificate).
-- `src/index.ts` — Hono-based Worker with routes for: doctor procedure
-  library, doctor patient-tracking list, prescribe-to-patient, patient
-  watch view, video streaming from R2, seek-attempt logging, video
-  completion, certificate generation, and a cron-driven 12h reminder
-  sweep.
+## What's built
+- `migrations/0001_initial.sql` — D1 schema: doctors + doctor_sessions,
+  procedures, videos, prescriptions (the 48h link, stored as a hash),
+  patient_otps + patient_sessions (one-time-code identity check),
+  video_progress (per-video completion + seek/pause counters),
+  progress_events (hash-chained, append-only audit log), certificates
+  (signed, immutable), rate_limits. All timestamps are ISO-8601 UTC with
+  milliseconds.
+- `src/` — Hono Worker. The API lives under `/api` on the same origin as
+  the frontend (`APP_ORIGIN`), so frontend pages like `/watch/{token}`
+  don't collide with it.
 - `wrangler.toml` — D1 + R2 bindings, cron trigger every 15 min for the
   reminder sweep.
+- `test/` — vitest suite running in the Workers runtime against local D1
+  and R2 (`npm test`).
 
-## Explicitly left as TODOs — do not skip these before going live
-1. **Doctor authentication.** Every `/doctor/*` route is currently
-   unauthenticated (reads a trusted `X-Doctor-Id` header as a stub).
-   Needs real session auth (signed cookie or JWT) before any real
-   patient data touches this.
-2. **Server-side watch-time verification.** `/complete` currently trusts
-   the client's call. Before shipping, tie completion to server-observed
-   playback — e.g. track byte-range requests against video duration, or
-   require periodic server-side heartbeat checks the client can't skip.
-   This is the single most important integrity requirement in the whole
-   app — it's what makes the certificate legally meaningful.
-3. **Actual email/SMS delivery** for: the initial 48h link, and the 12h
-   reminder to both doctor and patient. Stubbed as TODO comments;
-   needs a provider (e.g. Resend, Postmark, Twilio) and API key as a
-   Wrangler secret.
+### Routes
+Doctor (session cookie required, except login):
+- `POST /api/doctor/login`, `POST /api/doctor/logout`, `GET /api/doctor/me`
+- `GET /api/doctor/procedures`
+- `GET /api/doctor/patients` — the signed-in doctor's patients only
+- `GET /api/doctor/prescriptions/:id` — per-video progress
+- `GET /api/doctor/prescriptions/:id/certificate` — full certificate + integrity check
+- `POST /api/doctor/prescribe` — emails the patient their link; the link is
+  returned once in the response and can't be retrieved later
+
+Patient (`:token` is the link; watching also needs a verified code session):
+- `GET /api/watch/:token` — before verification: only where the code goes
+- `POST /api/watch/:token/otp/send`, `POST /api/watch/:token/otp/verify`
+- `GET|HEAD /api/watch/:token/video/:videoId/stream` — Range/206 support
+- `POST /api/watch/:token/video/:videoId/event` — `{type: "play"|"pause"}`
+- `POST /api/watch/:token/video/:videoId/seek-attempt`
+- `POST /api/watch/:token/video/:videoId/complete`
+- `GET /api/watch/:token/certificate`
+
+Public:
+- `GET /api/verify/:code` — status, procedure, date, patient initials only
+- `POST /api/verify` — `{payload, signature}`: checks a certificate copy
+- `GET /api/verify/public-key` — Ed25519 public key for independent checks
+
+### Security model (summary)
+- **Doctor auth:** PBKDF2-SHA256 passwords (100k iterations, the Workers
+  maximum); server-side sessions in `__Host-` cookies (HttpOnly, Secure,
+  SameSite=Strict), 30 min idle / 12 h absolute; lockout after 5 failed
+  logins per email in 15 min; state-changing requests from another
+  Origin are rejected. Accounts are created with `npm run create-doctor`.
+- **Patient identity:** a 6-digit code emailed to the address the doctor
+  entered (10 min expiry, 5 guesses, 60 s resend cooldown, 5 per hour).
+  The certificate records this as "verified by one-time code sent to
+  j***@example.com" — proof of control of that inbox.
+- **Completion (interim):** the server marks a video complete only if it
+  belongs to the prescription, is unlocked, was streamed by the server,
+  and at least 98% of its duration has passed since the first stream.
+  Early attempts are logged as `complete_rejected`. Certificates carry
+  `verification_level: "interim-time-check"` until TODO 2 lands.
+- **Certificate integrity:** each event's hash covers the previous hash,
+  so the log is a chain; database triggers block UPDATE/DELETE on events
+  and certificates. The certificate pins the chain head and is signed
+  with Ed25519. `/api/verify` re-checks the signature and re-walks the
+  chain, so edits made even with direct database access show as
+  "tampered". Verification codes are 60 random bits (`AUR-XXXX-XXXX-XXXX`).
+
+## Remaining TODOs — do not skip these before going live
+1. ~~Doctor authentication.~~ Done.
+2. **Full server-side watch-time verification.** The interim check above
+   stops instant fake completions, but someone can still open the stream
+   and leave the tab alone. Replace it with server-paced delivery
+   (segment gating) + heartbeats + attention checks; then change
+   `VERIFICATION_LEVEL`. This is still the single most important
+   integrity requirement.
+3. **Email delivery** — done via Resend for the link, one-time codes and
+   both 12h reminders. SMS is not built. Because link tokens are stored
+   only as hashes, the reminder can't include the link itself; it tells
+   the patient to use their original email. Also missing: doctor-side
+   **resend** (new token, old one revoked) and **revoke** routes.
 4. **Video upload path** for the doctor to add new procedures/videos at
    scale (dozens of procedures) — not yet built. Needs an admin upload
-   flow into R2 plus a `videos`/`procedures` row insert.
-5. **Certificate rendering** — the `/certificate` endpoint returns JSON
-   data; needs a printable/PDF view (the prototype's certificate design
-   is the visual reference — ask for the published prototype link if
-   needed).
+   flow into R2 plus a `videos`/`procedures` row insert
+   (`duration_seconds` is required).
+5. **Certificate rendering** — the certificate endpoints return JSON; needs
+   a printable/PDF view (the prototype's certificate design is the visual
+   reference — ask for the published prototype link if needed).
 6. **Brain Science / How It Works** videos aren't yet modeled — likely
-   just two more rows in `videos` with a `procedure_id` of NULL and a
-   dedicated "evergreen" flag, or a separate small table.
+   `procedure_id` nullable plus an `is_evergreen` flag, as a new migration.
+7. **Signing-key rotation.** Verification uses the current key only;
+   rotating it would make older certificates fail. Before rotating, keep
+   old public keys available by `key_id`.
+8. **Frontend** for this API (the Next.js app at the repo root is still
+   the standalone demo). One browser holds one patient session at a
+   time; verifying a second prescription replaces the first.
 
-## Deploy steps (once code is ready)
+## Deploy steps
 ```
 npm install
-wrangler login                      # user's own Cloudflare account
-wrangler d1 create aurelius-db      # paste resulting id into wrangler.toml
-wrangler r2 bucket create aurelius-videos
-npm run db:init:remote
-wrangler secret put JWT_SECRET
-wrangler secret put RESEND_API_KEY
+npx wrangler login                                  # your Cloudflare account
+npx wrangler d1 create aurelius-db                  # paste the id into wrangler.toml
+npx wrangler r2 bucket create aurelius-videos
+# set APP_ORIGIN and EMAIL_FROM in wrangler.toml
+npm run db:migrate:remote
+openssl rand -base64 32 | npx wrangler secret put OTP_SECRET
+npm run -s gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK   # back this key up offline
+npx wrangler secret put RESEND_API_KEY
 npm run deploy
+npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com --remote
 ```
+Local development: copy `.dev.vars.example` to `.dev.vars`, then
+`npm run db:migrate` and `npm run dev`. With no `RESEND_API_KEY`, emails
+(including one-time codes) are printed to the console.
 
 ## Reference
 The reviewed/approved UI prototype (click-through, no backend) shows the
