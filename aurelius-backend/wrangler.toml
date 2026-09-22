@@ -1,0 +1,30 @@
+name = "aurelius-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# --- D1 database ---
+# Create with: wrangler d1 create aurelius-db
+# Then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "aurelius-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# --- R2 bucket for video storage ---
+# Create with: wrangler r2 bucket create aurelius-videos
+[[r2_buckets]]
+binding = "VIDEOS"
+bucket_name = "aurelius-videos"
+
+# --- secrets (set with `wrangler secret put NAME`, do not put real values here) ---
+# JWT_SECRET        - signs doctor auth sessions
+# RESEND_API_KEY    - or your email provider, for invite + 12h reminder emails
+
+[vars]
+LINK_EXPIRY_HOURS = "48"
+REMINDER_HOURS_BEFORE_EXPIRY = "12"
+
+# --- Cron trigger: checks every 15 min for prescriptions crossing the
+# 12h-remaining mark, and fires the doctor+patient reminder exactly once ---
+[triggers]
+crons = ["*/15 * * * *"]
