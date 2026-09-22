@@ -2,18 +2,25 @@
   "name": "aurelius-api",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute aurelius-db --file=./schema.sql",
-    "db:init:remote": "wrangler d1 execute aurelius-db --remote --file=./schema.sql"
+    "db:migrate": "wrangler d1 migrations apply aurelius-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply aurelius-db --remote",
+    "create-doctor": "node scripts/create-doctor.mjs",
+    "gen-signing-key": "node scripts/gen-signing-key.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "hono": "^4.6.0"
   },
   "devDependencies": {
-    "wrangler": "^3.90.0",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^4.20250101.0",
     "typescript": "^5.6.0",
-    "@cloudflare/workers-types": "^4.20250101.0"
+    "vitest": "^4.1.0",
+    "wrangler": "^4.0.0"
   }
 }
