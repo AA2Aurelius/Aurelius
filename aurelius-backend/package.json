@@ -11,7 +11,8 @@
     "create-doctor": "node scripts/create-doctor.mjs",
     "gen-signing-key": "node scripts/gen-signing-key.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "package-video": "node scripts/package-video.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0"
