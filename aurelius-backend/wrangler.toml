@@ -3,12 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2025-09-01"
 
 # --- D1 database ---
-# Create with: wrangler d1 create aurelius-db
-# Then paste the returned database_id below.
+# Created in the Cloudflare dashboard (or: wrangler d1 create aurelius-db).
+# The id below is that database's; it identifies it but grants no access.
 [[d1_databases]]
 binding = "DB"
 database_name = "aurelius-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "e7579201-d0fb-4c06-a6de-e5ce3defcdc9"
 migrations_dir = "migrations"
 
 # --- R2 bucket for video storage ---
