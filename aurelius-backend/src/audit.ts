@@ -18,12 +18,13 @@ export type EventType =
   | 'otp_sent'
   | 'otp_verified'
   | 'otp_failed'
-  | 'stream_start'
-  | 'play'
-  | 'pause'
+  | 'playback_started'
   | 'seek_attempt'
+  | 'seek_blocked'
+  | 'attention_check_passed'
+  | 'attention_check_missed'
+  | 'playback_completed'
   | 'complete'
-  | 'complete_rejected'
   | 'certificate_issued'
   | 'reminder_12h';
 

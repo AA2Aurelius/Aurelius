@@ -21,6 +21,7 @@ bucket_name = "aurelius-videos"
 # OTP_SECRET        - random string; keys the hashes of patient one-time codes
 # SIGNING_KEY_JWK   - Ed25519 private key that signs certificates (npm run gen-signing-key)
 # RESEND_API_KEY    - email delivery for links, one-time codes and reminders
+# TURNSTILE_SECRET_KEY - Cloudflare Turnstile bot check before emailing a code
 # For local dev, put these in .dev.vars (git-ignored) instead.
 
 [vars]

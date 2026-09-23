@@ -34,7 +34,14 @@ describe('certificate', () => {
     expect(c.patient.identity_verification.method).toBe('email_one_time_code');
     expect(c.patient.identity_verification.destination).toMatch(/\*\*\*@mail\.test$/);
     expect(c.videos).toHaveLength(2);
-    expect(c.verification_level).toBe('interim-time-check');
+    expect(c.verification_level).toBe('server-paced-v1');
+    expect(c.version).toBe(2);
+    for (const v of c.videos) {
+      expect(v.watch.credited_seconds).toBeGreaterThanOrEqual(v.duration_seconds);
+      expect(v.watch.wall_seconds).toBeGreaterThanOrEqual(v.duration_seconds);
+      expect(v.watch.attention_checks_passed).toBeGreaterThanOrEqual(1);
+    }
+    expect(c.total_seek_blocked).toBe(0);
     expect(c.audit_log.event_count).toBeGreaterThan(0);
 
     const again = (await (await s.patient.fetch(`/api/watch/${s.token}/certificate`)).json()) as any;
@@ -130,10 +137,26 @@ describe('certificate', () => {
     }
   });
 
+  it('detects edited playback evidence (heartbeats or chunk serves)', async () => {
+    for (const table of ['heartbeats', 'segment_serves'] as const) {
+      const s = await certified();
+      const col = table === 'heartbeats' ? 'position_ms = position_ms + 1' : "first_served_at = '2000-01-01T00:00:00.000Z'";
+      await env.DB.exec(`DROP TRIGGER ${table}_no_update`);
+      try {
+        await env.DB.prepare(`UPDATE ${table} SET ${col} WHERE playback_id = ?`).bind(s.cert.certificate.videos[0].watch.playback_id).run();
+        expect(((await (await new Client().fetch(`/api/verify/${s.cert.verificationCode}`)).json()) as any).status, table).toBe('tampered');
+        const doctorView = (await (await s.doctorClient.fetch(`/api/doctor/prescriptions/${s.prescriptionId}/certificate`)).json()) as any;
+        expect(doctorView.integrity.problems.join(' '), table).toMatch(/video 1: (heartbeat|chunk-serve) records changed/);
+      } finally {
+        await env.DB.exec(`CREATE TRIGGER ${table}_no_update BEFORE UPDATE ON ${table} BEGIN SELECT RAISE(ABORT, '${table} is append-only'); END;`);
+      }
+    }
+  });
+
   it('events logged after issuance do not invalidate the certificate', async () => {
     const s = await certified();
     // Rewatching is allowed; its events extend the chain past what the certificate covers.
-    await s.patient.post(`/api/watch/${s.token}/video/${s.videoIds[0]}/event`, { type: 'play' });
+    await s.patient.post(`/api/watch/${s.token}/video/${s.videoIds[0]}/seek-attempt`, { from: 1, to: 2 });
     expect(((await (await new Client().fetch(`/api/verify/${s.cert.verificationCode}`)).json()) as any).status).toBe('valid');
   });
 
@@ -142,6 +165,6 @@ describe('certificate', () => {
     await env.DB.prepare(`UPDATE prescriptions SET expires_at = ? WHERE id = ?`).bind(new Date(Date.now() - 1000).toISOString(), s.prescriptionId).run();
     expect((await s.patient.fetch(`/api/watch/${s.token}/certificate`)).status).toBe(200);
     // ...but watching is over.
-    expect((await s.patient.fetch(`/api/watch/${s.token}/video/${s.videoIds[0]}/stream`)).status).toBe(410);
+    expect((await s.patient.post(`/api/watch/${s.token}/video/${s.videoIds[0]}/playback`)).status).toBe(410);
   });
 });

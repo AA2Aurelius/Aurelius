@@ -28,7 +28,7 @@ describe('resend', () => {
 
     // Old link and its verified session are dead.
     expect((await patient.fetch(`/api/watch/${s.token}`)).status).toBe(410);
-    expect((await patient.fetch(`/api/watch/${s.token}/video/${s.videoIds[0]}/stream`)).status).toBe(410);
+    expect((await patient.post(`/api/watch/${s.token}/video/${s.videoIds[0]}/playback`)).status).toBe(410);
     const sessions = await env.DB.prepare(`SELECT revoked_at FROM patient_sessions WHERE prescription_id = ?`).bind(s.prescriptionId).all<any>();
     expect(sessions.results.every((r) => r.revoked_at)).toBe(true);
 
@@ -112,7 +112,7 @@ describe('cancel', () => {
     expect(res.status).toBe(200);
 
     expect((await patient.fetch(`/api/watch/${s.token}`)).status).toBe(410);
-    expect((await patient.post(`/api/watch/${s.token}/otp/send`)).status).toBe(410);
+    expect((await patient.post(`/api/watch/${s.token}/otp/send`, { turnstileToken: 'turnstile-ok' })).status).toBe(410);
     const cancelled = (await events(s.prescriptionId)).filter((e) => e.event_type === 'link_cancelled');
     expect(cancelled).toHaveLength(1);
     expect(JSON.parse(cancelled[0].meta)).toMatchObject({ reason: 'Wrong patient', by_doctor: s.doctor.id });

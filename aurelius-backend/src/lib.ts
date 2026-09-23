@@ -6,6 +6,7 @@ export interface Env {
   OTP_SECRET: string;          // HMAC key for one-time code hashes
   SIGNING_KEY_JWK: string;     // Ed25519 private key (JWK JSON) that signs certificates
   RESEND_API_KEY?: string;     // email delivery; may be unset only in development
+  TURNSTILE_SECRET_KEY?: string; // bot check before emailing a code; may be unset only in development
 
   // --- vars (wrangler.toml) ---
   ENVIRONMENT: string;         // "production" | "development" | "test"

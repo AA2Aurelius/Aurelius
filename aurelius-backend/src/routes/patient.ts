@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { logEvent, prepareEvent, withChainRetry } from '../audit';
-import { VERIFICATION_LEVEL, formatVerificationCode, getCertificateRow, issueCertificateIfComplete } from '../certificate';
+import { formatVerificationCode, getCertificateRow, issueCertificateIfComplete } from '../certificate';
 import { sendEmail } from '../email';
 import { clientIp, hmacHex, hoursUntil, maskEmail, nowIso, randomBytes, secondsFromNow, secondsSince, timingSafeEqual, uuid } from '../lib';
 import { overLimit } from '../ratelimit';
 import { createPatientSession, getPatientSession } from '../sessions';
-import { serveR2Object } from '../stream';
-import { AppEnv, getPrescribedVideo, isUnlocked, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
+import { turnstilePasses } from '../turnstile';
+import { AppEnv, getPrescribedVideo, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
+import { registerPlaybackRoutes } from './playback';
 
 // Patient routes, mounted at /api/watch. The link token identifies the
 // prescription; a verified one-time-code session proves it's the patient.
@@ -19,11 +20,6 @@ const OTP_TTL_SECONDS = 10 * 60;
 const OTP_RESEND_COOLDOWN_SECONDS = 60;
 const OTP_MAX_PER_HOUR = 5;
 const OTP_MAX_ATTEMPTS = 5;
-
-// Interim completion rule (until full watch-time verification): at least
-// 98% of the video's duration must have passed since the server first
-// streamed it. Pausing only makes the gap longer.
-export const MIN_WATCH_FRACTION = 0.98;
 
 function sessionTag(sessionId: string): string {
   return sessionId.slice(0, 16);
@@ -73,6 +69,10 @@ patient.post('/:token/otp/send', async (c) => {
   const p = c.get('prescription');
   if (await overLimit(c.env, `otp-ip:${clientIp(c.req.raw) ?? 'unknown'}`, 30, 3600)) {
     return c.json({ error: 'Too many requests. Try again later.' }, 429);
+  }
+  const body = await readJson(c);
+  if (!(await turnstilePasses(c.env, body.turnstileToken, clientIp(c.req.raw)))) {
+    return c.json({ error: 'Please complete the verification check and try again.' }, 400);
   }
 
   const hourAgo = new Date(Date.now() - 3600_000).toISOString();
@@ -148,42 +148,13 @@ patient.post('/:token/otp/verify', async (c) => {
 
 // ------------------------------------------------------------- watching
 
-patient.get('/:token/video/:videoId/stream', requireActiveLink, requirePatient, async (c) => {
-  const p = c.get('prescription');
-  const video = await getPrescribedVideo(c.env, p.id, c.req.param('videoId'));
-  if (!video) return c.json({ error: 'Not found.' }, 404);
-  if (!(await isUnlocked(c.env, p.id, video.order_index))) {
-    return c.json({ error: 'This video is locked until the previous one is finished.' }, 403);
-  }
-
-  const res = await serveR2Object(c.env.VIDEOS, video.r2_key, c.req.raw);
-  if (!res) return c.json({ error: 'Not found.' }, 404);
-
-  // The first real (GET) byte request that's actually served starts the clock.
-  if (c.req.raw.method === 'GET' && res.ok && !video.started_at) {
-    const startedAt = nowIso();
-    await withChainRetry(
-      () => prepareEvent(
-        c.env,
-        { prescriptionId: p.id, videoId: video.video_id, type: 'stream_start', ip: clientIp(c.req.raw), meta: { session: sessionTag(c.get('patient').sessionId) } },
-        { onlyIfPreviousChanged: true }
-      ),
-      async (ev) => {
-        await c.env.DB.batch([
-          c.env.DB.prepare(`UPDATE video_progress SET started_at = ? WHERE id = ? AND started_at IS NULL`).bind(startedAt, video.progress_id),
-          ev.stmt,
-        ]);
-      }
-    );
-  }
-  return res;
-});
-
 async function overEventLimit(c: any, perMinute: number): Promise<boolean> {
   return overLimit(c.env, `events:${c.get('patient').sessionId}`, perMinute, 60);
 }
 
-// Client-reported seek attempt. Only ever increments a counter.
+// Client-reported seek attempt (the player saw the patient try to skip).
+// Only ever increments a counter; server-detected attempts are logged by the
+// playback routes.
 patient.post('/:token/video/:videoId/seek-attempt', requireActiveLink, requirePatient, async (c) => {
   const p = c.get('prescription');
   const video = await getPrescribedVideo(c.env, p.id, c.req.param('videoId'));
@@ -207,84 +178,9 @@ patient.post('/:token/video/:videoId/seek-attempt', requireActiveLink, requirePa
   return c.json({ ok: true });
 });
 
-// Client-reported play/pause. Pauses increment pause_count.
-patient.post('/:token/video/:videoId/event', requireActiveLink, requirePatient, async (c) => {
-  const p = c.get('prescription');
-  const video = await getPrescribedVideo(c.env, p.id, c.req.param('videoId'));
-  if (!video) return c.json({ error: 'Not found.' }, 404);
-
-  const body = await readJson(c);
-  const type = body.type;
-  if (type !== 'play' && type !== 'pause') return c.json({ error: 'type must be "play" or "pause".' }, 400);
-  if (await overEventLimit(c, 30)) return c.json({ error: 'Too many events.' }, 429);
-
-  const meta: Record<string, unknown> = { source: 'client', session: sessionTag(c.get('patient').sessionId) };
-  if (typeof body.position === 'number' && Number.isFinite(body.position)) meta.position = body.position;
-
-  await withChainRetry(
-    () => prepareEvent(c.env, { prescriptionId: p.id, videoId: video.video_id, type, ip: clientIp(c.req.raw), meta }),
-    async (ev) => {
-      const stmts = [ev.stmt];
-      if (type === 'pause') stmts.unshift(c.env.DB.prepare(`UPDATE video_progress SET pause_count = pause_count + 1 WHERE id = ?`).bind(video.progress_id));
-      await c.env.DB.batch(stmts);
-    }
-  );
-  return c.json({ ok: true });
-});
-
-// Marks a video complete -- only if it's this prescription's video, it's
-// unlocked, the server has streamed it, and enough real time has passed.
-// See MIN_WATCH_FRACTION; full watch-time verification replaces this check.
-patient.post('/:token/video/:videoId/complete', requireActiveLink, requirePatient, async (c) => {
-  const p = c.get('prescription');
-  const ip = clientIp(c.req.raw);
-  const session = sessionTag(c.get('patient').sessionId);
-  const video = await getPrescribedVideo(c.env, p.id, c.req.param('videoId'));
-  if (!video) return c.json({ error: 'Not found.' }, 404);
-  if (video.completed_at) return c.json({ ok: true, alreadyComplete: true });
-  if (!(await isUnlocked(c.env, p.id, video.order_index))) {
-    return c.json({ error: 'This video is locked until the previous one is finished.' }, 403);
-  }
-  if (!video.started_at) return c.json({ error: 'This video has not been played yet.' }, 409);
-
-  const elapsed = secondsSince(video.started_at);
-  const required = video.duration_seconds * MIN_WATCH_FRACTION;
-  if (elapsed < required) {
-    await logEvent(c.env, {
-      prescriptionId: p.id, videoId: video.video_id, type: 'complete_rejected', ip,
-      meta: { reason: 'too_early', elapsed_seconds: Math.floor(elapsed), required_seconds: Math.ceil(required), session },
-    });
-    return c.json({ error: 'The video has not been watched to the end yet.', secondsRemaining: Math.ceil(required - elapsed) }, 409);
-  }
-
-  const completedAt = nowIso();
-  await withChainRetry(
-    () => prepareEvent(
-      c.env,
-      {
-        prescriptionId: p.id, videoId: video.video_id, type: 'complete', ip,
-        meta: { verification_level: VERIFICATION_LEVEL, elapsed_seconds: Math.floor(elapsed), required_seconds: Math.ceil(required), session },
-      },
-      // Written only if this request is the one that set completed_at.
-      { onlyIfPreviousChanged: true }
-    ),
-    async (ev) => {
-      await c.env.DB.batch([
-        c.env.DB.prepare(`UPDATE video_progress SET completed_at = ? WHERE id = ? AND completed_at IS NULL`).bind(completedAt, video.progress_id),
-        ev.stmt,
-      ]);
-    }
-  );
-
-  let certificateIssued = false;
-  try {
-    certificateIssued = !!(await issueCertificateIfComplete(c.env, p.id));
-  } catch (err) {
-    // Completion stands; issuance is retried on the next certificate request.
-    console.error('certificate issuance failed', err);
-  }
-  return c.json({ ok: true, certificateIssued });
-});
+// Playback start, playlist, chunks, heartbeats, attention checks and
+// server-side completion.
+registerPlaybackRoutes(patient);
 
 // --------------------------------------------------------- certificate
 

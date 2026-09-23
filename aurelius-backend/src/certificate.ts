@@ -1,13 +1,14 @@
 import { CHAIN_ALGORITHM, logEvent, verifyChain } from './audit';
+import { evidenceHashes } from './evidence';
 import { Env, base64url, canonicalJson, fromBase64url, maskEmail, nowIso, randomBytes, sha256Hex, uuid } from './lib';
 
 // Certificates are issued once per prescription, signed with Ed25519, and
 // never changed. Anyone holding the public key (GET /verify/public-key) can
 // check a certificate's signature without trusting this server.
 
-// Until full server-side watch-time verification lands, completion rests
-// on a time-since-first-stream check only, and every certificate says so.
-export const VERIFICATION_LEVEL = 'interim-time-check';
+// How completion was established: the server paced delivery of every chunk
+// to real time and decided completion itself (see src/playback.ts).
+export const VERIFICATION_LEVEL = 'server-paced-v1';
 
 // ---------------------------------------------------------------- signing
 
@@ -82,7 +83,7 @@ export function normalizeVerificationCode(input: string): string | null {
 // ------------------------------------------------------------ certificate
 
 export interface CertificatePayload {
-  version: 1;
+  version: 2;
   certificate_id: string;
   verification_code: string;
   prescription_id: string;
@@ -102,10 +103,21 @@ export interface CertificatePayload {
     duration_seconds: number;
     started_at: string;
     completed_at: string;
-    seek_attempts: number;
+    seek_attempts: number;   // reported by the player
     pause_count: number;
+    watch: {
+      playback_id: string;
+      wall_seconds: number;          // from playback start to completion, server clock
+      credited_seconds: number;      // time the server counted as watching (>= video length)
+      hidden_seconds: number;        // player-reported: playing while the tab was hidden
+      pauses: number;
+      seek_blocked: number;          // skip attempts the server refused
+      attention_checks_passed: number;
+      attention_checks_missed: number;
+    };
   }>;
-  total_seek_attempts: number;
+  total_seek_attempts: number;       // reported by the player
+  total_seek_blocked: number;        // refused by the server
   audit_log: { algorithm: string; event_count: number; head_hash: string };
   signature: { algorithm: 'Ed25519'; key_id: string };
 }
@@ -141,11 +153,17 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
   if (!p) return null;
 
   const { results: progress } = await env.DB.prepare(
-    `SELECT v.id AS video_id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count
+    `SELECT v.id AS video_id, v.title, v.order_index, v.duration_seconds, vp.completed_at, vp.seek_attempts, vp.pause_count,
+            pb.id AS playback_id, pb.created_at AS started_at, pb.credited_ms, pb.hidden_ms, pb.pauses, pb.seek_blocked,
+            (SELECT COUNT(*) FROM attention_checks ac WHERE ac.playback_id = pb.id AND ac.outcome = 'passed') AS checks_passed,
+            (SELECT COUNT(*) FROM attention_checks ac WHERE ac.playback_id = pb.id AND ac.outcome = 'missed') AS checks_missed
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
+     LEFT JOIN playback_sessions pb ON pb.id = vp.completed_playback_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
   ).bind(prescriptionId).all<any>();
   if (progress.length === 0 || progress.some((r) => !r.completed_at)) return null;
+  // Every completion must come from a server-paced playback.
+  if (progress.some((r) => !r.playback_id)) throw new Error(`prescription ${prescriptionId} has a completion without a playback record`);
 
   const firstVerification = await env.DB.prepare(
     `SELECT created_at FROM patient_sessions WHERE prescription_id = ? ORDER BY created_at LIMIT 1`
@@ -160,7 +178,7 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
   const code = newVerificationCode();
   const issuedAt = nowIso();
   const payload: CertificatePayload = {
-    version: 1,
+    version: 2,
     certificate_id: id,
     verification_code: formatVerificationCode(code),
     prescription_id: prescriptionId,
@@ -182,8 +200,19 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
       completed_at: r.completed_at,
       seek_attempts: r.seek_attempts,
       pause_count: r.pause_count,
+      watch: {
+        playback_id: r.playback_id,
+        wall_seconds: Math.round((Date.parse(r.completed_at) - Date.parse(r.started_at)) / 1000),
+        credited_seconds: Math.round(r.credited_ms / 1000),
+        hidden_seconds: Math.round(r.hidden_ms / 1000),
+        pauses: r.pauses,
+        seek_blocked: r.seek_blocked,
+        attention_checks_passed: r.checks_passed,
+        attention_checks_missed: r.checks_missed,
+      },
     })),
     total_seek_attempts: progress.reduce((sum, r) => sum + r.seek_attempts, 0),
+    total_seek_blocked: progress.reduce((sum, r) => sum + r.seek_blocked, 0),
     audit_log: { algorithm: CHAIN_ALGORITHM, event_count: chain.count, head_hash: chain.headHash },
     signature: { algorithm: 'Ed25519', key_id: keys.keyId },
   };
@@ -228,7 +257,28 @@ export async function checkCertificate(env: Env, row: CertificateRow): Promise<C
     const chain = await verifyChain(env, row.prescription_id, payload.audit_log.event_count);
     if (!chain.ok) problems.push(`audit log: ${chain.error}`);
     else if (chain.headHash !== payload.audit_log.head_hash) problems.push('audit log head hash mismatch');
+    else problems.push(...(await checkPlaybackEvidence(env, row.prescription_id, payload)));
   }
 
   return { valid: problems.length === 0, problems, payload };
+}
+
+// Each video's raw playback evidence must still hash to what its chained
+// `playback_completed` event recorded.
+async function checkPlaybackEvidence(env: Env, prescriptionId: string, payload: CertificatePayload): Promise<string[]> {
+  const problems: string[] = [];
+  for (const v of payload.videos) {
+    const ev = await env.DB.prepare(
+      `SELECT meta FROM progress_events WHERE prescription_id = ? AND event_type = 'playback_completed' AND seq <= ? AND json_extract(meta, '$.playback') = ?`
+    ).bind(prescriptionId, payload.audit_log.event_count, v.watch.playback_id).first<{ meta: string }>();
+    if (!ev) {
+      problems.push(`video ${v.order}: no playback_completed event`);
+      continue;
+    }
+    const recorded = JSON.parse(ev.meta);
+    const now = await evidenceHashes(env, v.watch.playback_id);
+    if (recorded.segment_serves_sha256 !== now.segment_serves_sha256) problems.push(`video ${v.order}: chunk-serve records changed`);
+    if (recorded.heartbeats_sha256 !== now.heartbeats_sha256) problems.push(`video ${v.order}: heartbeat records changed`);
+  }
+  return problems;
 }
