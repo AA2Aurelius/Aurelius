@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
-import { GENESIS_HASH, logEvent, prepareEvent } from '../audit';
-import { checkCertificate, formatVerificationCode, issueCertificateIfComplete } from '../certificate';
+import { GENESIS_HASH, logEvent, prepareEvent, withChainRetry } from '../audit';
+import { checkCertificate, formatVerificationCode, getCertificateRow, issueCertificateIfComplete } from '../certificate';
 import { sendEmail } from '../email';
-import { clientIp, hoursFromNow, hoursUntil, isEmail, maskEmail, nowIso, randomToken, sha256Hex, uuid } from '../lib';
+import { Env, clientIp, hoursFromNow, hoursUntil, isEmail, maskEmail, nowIso, randomToken, sha256Hex, uuid } from '../lib';
 import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
 import { hitRateLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
-import { AppEnv, readJson, requireDoctor } from './common';
+import { AppEnv, Prescription, readJson, requireDoctor } from './common';
 
 export const doctor = new Hono<AppEnv>();
 
@@ -96,7 +96,10 @@ doctor.get('/patients', async (c) => {
 // Per-video progress for one of this doctor's prescriptions.
 doctor.get('/prescriptions/:id', async (c) => {
   const p = await c.env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, proc.name AS procedure_name
+    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
+            pr.replaces_prescription_id,
+            (SELECT id FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id) AS replaced_by,
+            proc.name AS procedure_name
      FROM prescriptions pr JOIN procedures proc ON proc.id = pr.procedure_id
      WHERE pr.id = ? AND pr.doctor_id = ?`
   ).bind(c.req.param('id'), c.get('doctor').doctorId).first<any>();
@@ -130,10 +133,104 @@ doctor.get('/prescriptions/:id/certificate', async (c) => {
 
 // ------------------------------------------------------------- prescribe
 
+interface NewPrescription {
+  doctorId: string;
+  doctorName: string;
+  procedure: { id: string; name: string };
+  patientName: string;
+  patientEmail: string;
+  ip: string | null;
+  // Resend: the prescription this one replaces. Its revocation is written in
+  // the same transaction, so there's never a moment with two live links.
+  replaces?: { id: string; stmts: (newId: string) => Promise<D1PreparedStatement[]> };
+}
+
 // Creates the prescription, one progress row per video and the first audit
 // event in a single transaction, then emails the patient their 48h link.
+async function createPrescription(env: Env, input: NewPrescription): Promise<
+  { ok: true; prescriptionId: string; watchUrl: string; expiresAt: string; emailSent: boolean } | { ok: false; status: 400 | 409; error: string }
+> {
+  const { results: videos } = await env.DB.prepare(`SELECT id FROM videos WHERE procedure_id = ? ORDER BY order_index`)
+    .bind(input.procedure.id).all<{ id: string }>();
+  if (videos.length === 0) return { ok: false, status: 400, error: 'This procedure has no videos yet.' };
+
+  const prescriptionId = uuid();
+  const token = randomToken();
+  const tokenHash = await sha256Hex(token);
+  const createdAt = nowIso();
+  const expiresAt = hoursFromNow(Number(env.LINK_EXPIRY_HOURS || 48));
+
+  try {
+    await withChainRetry(
+      async () => {
+        const first = await prepareEvent(
+          env,
+          {
+            prescriptionId, type: 'prescribed', ip: input.ip,
+            meta: {
+              doctor_id: input.doctorId, procedure_id: input.procedure.id, video_count: videos.length, expires_at: expiresAt,
+              ...(input.replaces ? { replaces_prescription_id: input.replaces.id } : {}),
+            },
+          },
+          { head: { seq: 0, hash: GENESIS_HASH } }
+        );
+        return [
+          ...(input.replaces ? await input.replaces.stmts(prescriptionId) : []),
+          env.DB.prepare(
+            `INSERT INTO prescriptions (id, doctor_id, procedure_id, patient_name, patient_email, link_token_hash, created_at, expires_at, replaces_prescription_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(prescriptionId, input.doctorId, input.procedure.id, input.patientName, input.patientEmail, tokenHash, createdAt, expiresAt, input.replaces?.id ?? null),
+          ...videos.map((v) =>
+            env.DB.prepare(`INSERT INTO video_progress (id, prescription_id, video_id) VALUES (?, ?, ?)`).bind(uuid(), prescriptionId, v.id)
+          ),
+          first.stmt,
+        ];
+      },
+      async (stmts) => { await env.DB.batch(stmts); }
+    );
+  } catch (err) {
+    // Two resends of the same link racing: only one may replace it.
+    if (/UNIQUE constraint failed: prescriptions\.replaces_prescription_id/.test(String((err as any)?.message ?? err))) {
+      return { ok: false, status: 409, error: 'This link has already been resent.' };
+    }
+    throw err;
+  }
+
+  const watchUrl = `${env.APP_ORIGIN}/watch/${token}`;
+  let emailSent = true;
+  try {
+    await sendEmail(env, {
+      to: input.patientEmail,
+      subject: input.replaces
+        ? `Your new link for your ${input.procedure.name} information videos`
+        : `${input.doctorName} has shared your ${input.procedure.name} information videos`,
+      text:
+        `Hello ${input.patientName},\n\n` +
+        (input.replaces
+          ? `${input.doctorName} has sent you a new link for your ${input.procedure.name} videos. Any earlier link no longer works.\n\n`
+          : `${input.doctorName} has asked you to watch a short series of videos about your ${input.procedure.name}.\n\n`) +
+        `Open this link to start (it expires in 48 hours):\n${watchUrl}\n\n` +
+        `We'll email a one-time code to this address to confirm it's you before the first video.`,
+    });
+    await logEvent(env, { prescriptionId, type: 'link_sent', meta: { channel: 'email', to: maskEmail(input.patientEmail) } });
+  } catch (err) {
+    emailSent = false;
+    console.error('link email failed', err);
+    await logEvent(env, { prescriptionId, type: 'link_send_failed', meta: { channel: 'email', to: maskEmail(input.patientEmail), error: String(err).slice(0, 200) } });
+  }
+
+  return { ok: true, prescriptionId, watchUrl, expiresAt, emailSent };
+}
+
+function revokePatientSessions(env: Env, prescriptionId: string, at: string): D1PreparedStatement {
+  return env.DB.prepare(`UPDATE patient_sessions SET revoked_at = ? WHERE prescription_id = ? AND revoked_at IS NULL`).bind(at, prescriptionId);
+}
+
+async function getOwnedPrescription(env: Env, id: string, doctorId: string): Promise<Prescription | null> {
+  return env.DB.prepare(`SELECT * FROM prescriptions WHERE id = ? AND doctor_id = ?`).bind(id, doctorId).first<Prescription>();
+}
+
 doctor.post('/prescribe', async (c) => {
-  const doctorId = c.get('doctor').doctorId;
   const body = await readJson(c);
   const patientName = typeof body.patient_name === 'string' ? body.patient_name.trim() : '';
   const patientEmail = typeof body.patient_email === 'string' ? body.patient_email.trim() : '';
@@ -143,50 +240,91 @@ doctor.post('/prescribe', async (c) => {
 
   const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(procedureId).first<{ id: string; name: string }>();
   if (!procedure) return c.json({ error: 'Unknown procedure.' }, 404);
-  const { results: videos } = await c.env.DB.prepare(`SELECT id FROM videos WHERE procedure_id = ? ORDER BY order_index`)
-    .bind(procedure.id).all<{ id: string }>();
-  if (videos.length === 0) return c.json({ error: 'This procedure has no videos yet.' }, 400);
 
-  const prescriptionId = uuid();
-  const token = randomToken();
-  const createdAt = nowIso();
-  const expiresAt = hoursFromNow(Number(c.env.LINK_EXPIRY_HOURS || 48));
-
-  const first = await prepareEvent(
-    c.env,
-    { prescriptionId, type: 'prescribed', ip: clientIp(c.req.raw), meta: { doctor_id: doctorId, procedure_id: procedure.id, video_count: videos.length, expires_at: expiresAt } },
-    { head: { seq: 0, hash: GENESIS_HASH } }
-  );
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `INSERT INTO prescriptions (id, doctor_id, procedure_id, patient_name, patient_email, link_token_hash, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(prescriptionId, doctorId, procedure.id, patientName, patientEmail, await sha256Hex(token), createdAt, expiresAt),
-    ...videos.map((v) =>
-      c.env.DB.prepare(`INSERT INTO video_progress (id, prescription_id, video_id) VALUES (?, ?, ?)`).bind(uuid(), prescriptionId, v.id)
-    ),
-    first.stmt,
-  ]);
-
-  const watchUrl = `${c.env.APP_ORIGIN}/watch/${token}`;
-  let emailSent = true;
-  try {
-    await sendEmail(c.env, {
-      to: patientEmail,
-      subject: `${c.get('doctor').name} has shared your ${procedure.name} information videos`,
-      text:
-        `Hello ${patientName},\n\n` +
-        `${c.get('doctor').name} has asked you to watch a short series of videos about your ${procedure.name}.\n\n` +
-        `Open this link to start (it expires in 48 hours):\n${watchUrl}\n\n` +
-        `We'll email a one-time code to this address to confirm it's you before the first video.`,
-    });
-    await logEvent(c.env, { prescriptionId, type: 'link_sent', meta: { channel: 'email', to: maskEmail(patientEmail) } });
-  } catch (err) {
-    emailSent = false;
-    console.error('link email failed', err);
-    await logEvent(c.env, { prescriptionId, type: 'link_send_failed', meta: { channel: 'email', to: maskEmail(patientEmail), error: String(err).slice(0, 200) } });
-  }
-
+  const result = await createPrescription(c.env, {
+    doctorId: c.get('doctor').doctorId, doctorName: c.get('doctor').name, procedure, patientName, patientEmail, ip: clientIp(c.req.raw),
+  });
+  if (!result.ok) return c.json({ error: result.error }, result.status);
   // The link is shown to the doctor once, here. It can't be retrieved later.
-  return c.json({ prescriptionId, watchUrl, expiresAt, emailSent }, 201);
+  const { ok: _ok, ...response } = result;
+  return c.json(response, 201);
+});
+
+// ---------------------------------------------------- resend and cancel
+
+// Resend = a new prescription with a new token, a fresh 48 hours and fresh
+// progress; the old link is revoked in the same transaction. Works for live,
+// expired or cancelled links (e.g. to fix a mistyped email), but not for a
+// set that's already certified, and each link can be replaced only once.
+doctor.post('/prescriptions/:id/resend', async (c) => {
+  const doctor = c.get('doctor');
+  const old = await getOwnedPrescription(c.env, c.req.param('id'), doctor.doctorId);
+  if (!old) return c.json({ error: 'Not found.' }, 404);
+  if (await getCertificateRow(c.env, old.id)) return c.json({ error: 'This patient has already completed every video.' }, 409);
+  const replaced = await c.env.DB.prepare(`SELECT id FROM prescriptions WHERE replaces_prescription_id = ?`).bind(old.id).first<{ id: string }>();
+  if (replaced) return c.json({ error: 'This link has already been resent.', replacedBy: replaced.id }, 409);
+
+  const body = await readJson(c);
+  const patientEmail = body.patient_email === undefined ? old.patient_email : typeof body.patient_email === 'string' ? body.patient_email.trim() : '';
+  if (!isEmail(patientEmail)) return c.json({ error: 'A valid patient_email is required.' }, 400);
+
+  const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(old.procedure_id).first<{ id: string; name: string }>();
+  if (!procedure) return c.json({ error: 'Unknown procedure.' }, 404);
+
+  const ip = clientIp(c.req.raw);
+  const result = await createPrescription(c.env, {
+    doctorId: doctor.doctorId, doctorName: doctor.name, procedure, patientName: old.patient_name, patientEmail, ip,
+    replaces: {
+      id: old.id,
+      stmts: async (newId) => {
+        const at = nowIso();
+        const ev = await prepareEvent(c.env, {
+          prescriptionId: old.id, type: 'link_replaced', ip,
+          meta: {
+            replaced_by: newId, by_doctor: doctor.doctorId, was: old.revoked_at ? `revoked:${old.revoked_reason}` : hoursUntil(old.expires_at) <= 0 ? 'expired' : 'active',
+            ...(patientEmail !== old.patient_email ? { new_destination: maskEmail(patientEmail) } : {}),
+          },
+        });
+        return [
+          ev.stmt,
+          c.env.DB.prepare(`UPDATE prescriptions SET revoked_at = COALESCE(revoked_at, ?), revoked_reason = COALESCE(revoked_reason, 'resent') WHERE id = ?`).bind(at, old.id),
+          revokePatientSessions(c.env, old.id, at),
+        ];
+      },
+    },
+  });
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  const { ok: _ok, ...response } = result;
+  return c.json({ ...response, replaces: old.id }, 201);
+});
+
+// Cancel = revoke the link now. The patient can no longer open it and any
+// verified sessions end. Not allowed once the set is certified, so the
+// patient keeps access to their certificate.
+doctor.post('/prescriptions/:id/cancel', async (c) => {
+  const doctor = c.get('doctor');
+  const p = await getOwnedPrescription(c.env, c.req.param('id'), doctor.doctorId);
+  if (!p) return c.json({ error: 'Not found.' }, 404);
+  if (p.revoked_at) return c.json({ ok: true, alreadyCancelled: true, revokedReason: p.revoked_reason });
+  if (await getCertificateRow(c.env, p.id)) return c.json({ error: 'This patient has already completed every video.' }, 409);
+
+  const body = await readJson(c);
+  const note = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
+  const at = nowIso();
+  await withChainRetry(
+    () => prepareEvent(
+      c.env,
+      { prescriptionId: p.id, type: 'link_cancelled', ip: clientIp(c.req.raw), meta: { by_doctor: doctor.doctorId, ...(note ? { reason: note } : {}) } },
+      // Logged only if this request is the one that revoked the link.
+      { onlyIfPreviousChanged: true }
+    ),
+    async (ev) => {
+      await c.env.DB.batch([
+        c.env.DB.prepare(`UPDATE prescriptions SET revoked_at = ?, revoked_reason = 'cancelled' WHERE id = ? AND revoked_at IS NULL`).bind(at, p.id),
+        ev.stmt,
+        revokePatientSessions(c.env, p.id, at),
+      ]);
+    }
+  );
+  return c.json({ ok: true });
 });

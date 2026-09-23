@@ -13,6 +13,8 @@ export type EventType =
   | 'prescribed'
   | 'link_sent'
   | 'link_send_failed'
+  | 'link_cancelled'
+  | 'link_replaced'
   | 'otp_sent'
   | 'otp_verified'
   | 'otp_failed'

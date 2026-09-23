@@ -13,6 +13,8 @@ export interface Prescription {
   expires_at: string;
   reminder_12h_sent_at: string | null;
   revoked_at: string | null;
+  revoked_reason: string | null;
+  replaces_prescription_id: string | null;
 }
 
 export type AppEnv = {

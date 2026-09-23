@@ -32,7 +32,8 @@ No billing, no subscriptions.
     already tried Wrangler CLI, prefers the least-friction deploy path.)
 
 ## What's built
-- `migrations/0001_initial.sql` — D1 schema: doctors + doctor_sessions,
+- `migrations/` — D1 schema (`0001_initial.sql`; `0002_resend_cancel.sql`
+  links a resent prescription to the one it replaces): doctors + doctor_sessions,
   procedures, videos, prescriptions (the 48h link, stored as a hash),
   patient_otps + patient_sessions (one-time-code identity check),
   video_progress (per-video completion + seek/pause counters),
@@ -56,6 +57,13 @@ Doctor (session cookie required, except login):
 - `GET /api/doctor/prescriptions/:id/certificate` — full certificate + integrity check
 - `POST /api/doctor/prescribe` — emails the patient their link; the link is
   returned once in the response and can't be retrieved later
+- `POST /api/doctor/prescriptions/:id/resend` — new link, fresh 48h and fresh
+  progress; the old link and its sessions are revoked in the same
+  transaction. Optional `{patient_email}` to correct the address. Allowed
+  for live, expired or cancelled links; not once certified; once per link.
+- `POST /api/doctor/prescriptions/:id/cancel` — revokes the link and ends
+  verified sessions. Optional `{reason}` goes in the audit log. Not
+  allowed once certified.
 
 Patient (`:token` is the link; watching also needs a verified code session):
 - `GET /api/watch/:token` — before verification: only where the code goes
@@ -104,8 +112,8 @@ Public:
 3. **Email delivery** — done via Resend for the link, one-time codes and
    both 12h reminders. SMS is not built. Because link tokens are stored
    only as hashes, the reminder can't include the link itself; it tells
-   the patient to use their original email. Also missing: doctor-side
-   **resend** (new token, old one revoked) and **revoke** routes.
+   the patient to use their original email (decided: no link encryption).
+   Resend and cancel routes are done.
 4. **Video upload path** for the doctor to add new procedures/videos at
    scale (dozens of procedures) — not yet built. Needs an admin upload
    flow into R2 plus a `videos`/`procedures` row insert
