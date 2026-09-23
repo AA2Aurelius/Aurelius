@@ -7,6 +7,7 @@ import { overLimit } from '../ratelimit';
 import { createPatientSession, getPatientSession } from '../sessions';
 import { turnstilePasses } from '../turnstile';
 import { AppEnv, getPrescribedVideo, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
+import { registerEvergreenRoutes } from './evergreen';
 import { registerPlaybackRoutes } from './playback';
 
 // Patient routes, mounted at /api/watch. The link token identifies the
@@ -181,6 +182,8 @@ patient.post('/:token/video/:videoId/seek-attempt', requireActiveLink, requirePa
 // Playback start, playlist, chunks, heartbeats, attention checks and
 // server-side completion.
 registerPlaybackRoutes(patient);
+// The evergreen explainer videos, for any verified patient.
+registerEvergreenRoutes(patient, '/:token/evergreen', requirePatient);
 
 // --------------------------------------------------------- certificate
 

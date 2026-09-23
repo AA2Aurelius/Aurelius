@@ -35,7 +35,8 @@ No billing, no subscriptions.
 - `migrations/` — D1 schema (`0001_initial.sql`; `0002_resend_cancel.sql`
   links a resent prescription to the one it replaces; `0003_watch_time.sql`
   adds chunked videos, playback sessions, chunk-serve and heartbeat
-  evidence, and attention checks): doctors + doctor_sessions,
+  evidence, and attention checks; `0004_evergreen.sql` adds the evergreen
+  explainer videos in their own tables): doctors + doctor_sessions,
   procedures, videos, prescriptions (the 48h link, stored as a hash),
   patient_otps + patient_sessions (one-time-code identity check),
   video_progress (per-video completion + seek/pause counters),
@@ -66,6 +67,9 @@ Doctor (session cookie required, except login):
 - `POST /api/doctor/prescriptions/:id/cancel` — revokes the link and ends
   verified sessions. Optional `{reason}` goes in the audit log. Not
   allowed once certified.
+- `GET /api/doctor/evergreen` — the evergreen explainer videos, in order,
+  each with a `playlist` URL relative to that path; plus
+  `evergreen/:videoId/playlist.m3u8`, `init.mp4` and `seg/:n.m4s`
 
 Patient (`:token` is the link; watching also needs a verified code session):
 - `GET /api/watch/:token` — before verification: only where the code goes
@@ -86,6 +90,8 @@ Patient (`:token` is the link; watching also needs a verified code session):
 - `POST /api/watch/:token/video/:videoId/seek-attempt` — the player reports
   a skip attempt it blocked (client-reported)
 - `GET /api/watch/:token/certificate`
+- `GET /api/watch/:token/evergreen` — the same evergreen videos and playlist
+  routes as the doctor's, for a verified patient
 
 There is no "mark complete" endpoint: the server decides completion.
 
@@ -130,6 +136,11 @@ Public:
   a verified session, checks answered, and skip attempts blocked. Tab
   visibility and pause counts come from the browser and are labeled that
   way.
+- **Evergreen videos** ("Brain Science", "How It Works") live in their own
+  tables (`evergreen_videos`, `evergreen_segments`), so they can never be
+  part of a procedure's set, prescribed, or put on a certificate. They
+  play as ordinary VOD (every chunk listed, no pacing, nothing logged) for
+  signed-in doctors and verified patients only.
 - **Bot check:** Cloudflare Turnstile must pass before a one-time code is
   emailed.
 - **Certificate integrity:** each event's hash covers the previous hash,
@@ -155,14 +166,15 @@ Public:
    Resend and cancel routes are done.
 4. **Video upload path** for the doctor to add new procedures/videos at
    scale (dozens of procedures). Until then, `npm run package-video`
-   (local ffmpeg) encodes, uploads and registers a video. An upload flow
+   (local ffmpeg) encodes, uploads and registers videos, one at a time or
+   a batch from a CSV (see Deploy steps). An upload flow
    would need to run the same packaging off-Worker, since Workers can't run
    ffmpeg.
 5. **Certificate rendering** — the certificate endpoints return JSON; needs
    a printable/PDF view (the prototype's certificate design is the visual
    reference — ask for the published prototype link if needed).
-6. **Brain Science / How It Works** videos aren't yet modeled — likely
-   `procedure_id` nullable plus an `is_evergreen` flag, as a new migration.
+6. ~~Brain Science / How It Works videos.~~ Done (evergreen tables and
+   routes, above).
 7. **Signing-key rotation.** Verification uses the current key only;
    rotating it would make older certificates fail. Before rotating, keep
    old public keys available by `key_id`.
@@ -171,7 +183,8 @@ Public:
    time; verifying a second prescription replaces the first. The player
    needs hls.js (Safari/iOS can play the playlist natively), a heartbeat
    every 5 s using `document.visibilityState`, a pause while an attention
-   check is open, and the Turnstile widget on the code screen.
+   check is open, and the Turnstile widget on the code screen. The
+   evergreen videos play in the same player with no heartbeats.
 
 ## Deploy steps
 ```
@@ -187,8 +200,24 @@ npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY                          # from the Turnstile widget you create
 npm run deploy
 npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com --remote
-npm run package-video -- --file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1 --remote
+npm run package-video -- --manifest videos.csv --remote        # all videos; see below
 ```
+Uploading videos needs only D1 and R2 (`npm install`, `wrangler login`,
+the two `create` commands and `db:migrate:remote`); the Worker can be
+deployed later.
+
+**Uploading videos.** Copy `videos.example.csv` to `videos.csv` (it's
+git-ignored) and set each row's `file` to the video on your computer,
+relative to the CSV or absolute. Columns: `file,procedure,title,order`;
+leave `procedure` blank for an evergreen video. Then
+`npm run package-video -- --manifest videos.csv --remote`. Every row is
+checked (files exist, no repeated order) before anything is encoded.
+Re-running is safe: videos already in D1 at the same position with the same
+title are skipped, so a run that stopped partway continues where it left
+off. A stopped run may leave the chunks of the video it was on in R2 with
+nothing pointing at them; they're harmless. Single videos:
+`--file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1`,
+or `--evergreen` in place of `--procedure`.
 Local development: copy `.dev.vars.example` to `.dev.vars`, then
 `npm run db:migrate` and `npm run dev`. With no `RESEND_API_KEY`, emails
 (including one-time codes) are printed to the console, and with no

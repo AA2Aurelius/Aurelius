@@ -95,7 +95,9 @@ export function pickCheckTimes(totalMs: number): number[] {
   return [Math.round(lo + randomUnit() * (mid - lo)), Math.round(mid + randomUnit() * (hi - mid))];
 }
 
-export function hlsPlaylist(segments: Segment[], through: number, complete: boolean): string {
+// The HLS playlist for chunks 0..through. `vod` lists a whole video that
+// isn't paced (the evergreen explainers).
+export function hlsPlaylist(segments: Segment[], through: number, complete: boolean, vod = false): string {
   const target = Math.ceil(Math.max(...segments.map((s) => s.duration_ms)) / 1000);
   const lines = [
     '#EXTM3U',
@@ -103,7 +105,7 @@ export function hlsPlaylist(segments: Segment[], through: number, complete: bool
     `#EXT-X-TARGETDURATION:${target}`,
     '#EXT-X-MEDIA-SEQUENCE:0',
     // EVENT: the player treats the list as growing and keeps re-fetching it.
-    '#EXT-X-PLAYLIST-TYPE:EVENT',
+    `#EXT-X-PLAYLIST-TYPE:${vod ? 'VOD' : 'EVENT'}`,
     '#EXT-X-INDEPENDENT-SEGMENTS',
     '#EXT-X-MAP:URI="init.mp4"',
   ];
