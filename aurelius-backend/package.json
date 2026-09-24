@@ -4,15 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --local-upstream localhost:8787",
+    "deploy": "npm run build:web && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply aurelius-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply aurelius-db --remote",
     "create-doctor": "node scripts/create-doctor.mjs",
     "gen-signing-key": "node scripts/gen-signing-key.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "package-video": "node scripts/package-video.mjs"
+    "package-video": "node scripts/package-video.mjs",
+    "build:web": "npm --prefix ../aurelius-web ci && npm --prefix ../aurelius-web run build",
+    "test-prescribe": "node scripts/test-prescribe.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0"
