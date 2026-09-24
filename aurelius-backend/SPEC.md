@@ -192,7 +192,7 @@ npm install
 npx wrangler login                                  # your Cloudflare account
 npx wrangler d1 create aurelius-db                  # paste the id into wrangler.toml
 npx wrangler r2 bucket create aurelius-videos
-# set APP_ORIGIN and EMAIL_FROM in wrangler.toml
+# APP_ORIGIN, EMAIL_FROM and the aureliuscode.com route are set in wrangler.toml
 npm run db:migrate:remote
 openssl rand -base64 32 | npx wrangler secret put OTP_SECRET
 npm run -s gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK   # back this key up offline
