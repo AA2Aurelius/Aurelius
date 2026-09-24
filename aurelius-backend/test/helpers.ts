@@ -131,6 +131,23 @@ export async function seedProcedure(count = 2, durationSeconds = 60) {
   return { procedureId, videoIds };
 }
 
+// An evergreen explainer video (no procedure), packaged like the others.
+export async function seedEvergreen(title: string, order: number, durationSeconds = 12) {
+  const id = uuid();
+  const base = `videos/${id}`;
+  await env.VIDEOS.put(`${base}/init.mp4`, INIT_BYTES, { httpMetadata: { contentType: 'video/mp4' } });
+  await env.DB.prepare(`INSERT INTO evergreen_videos (id, title, order_index, duration_seconds, hls_init_r2_key, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+    .bind(id, title, order, durationSeconds, `${base}/init.mp4`, nowIso()).run();
+  const totalMs = durationSeconds * 1000;
+  for (let idx = 0, start = 0; start < totalMs; idx++, start += SEGMENT_MS) {
+    const key = `${base}/seg_${idx}.m4s`;
+    await env.VIDEOS.put(key, segmentBytes(idx), { httpMetadata: { contentType: 'video/iso.segment' } });
+    await env.DB.prepare(`INSERT INTO evergreen_segments (video_id, idx, r2_key, start_ms, duration_ms) VALUES (?, ?, ?, ?, ?)`)
+      .bind(id, idx, key, start, Math.min(SEGMENT_MS, totalMs - start)).run();
+  }
+  return id;
+}
+
 export async function loginDoctor(doctor: { email: string; password: string }) {
   const client = new Client();
   const res = await client.post('/api/doctor/login', { email: doctor.email, password: doctor.password });

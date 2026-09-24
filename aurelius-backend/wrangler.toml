@@ -2,13 +2,20 @@ name = "aurelius-api"
 main = "src/index.ts"
 compatibility_date = "2025-09-01"
 
+# The Worker owns aureliuscode.com (DNS is on Cloudflare). The API is under
+# /api; the frontend will be served from the same Worker. No workers.dev or
+# preview URLs: the app has exactly one origin (APP_ORIGIN below).
+routes = [{ pattern = "aureliuscode.com", custom_domain = true }]
+workers_dev = false
+preview_urls = false
+
 # --- D1 database ---
-# Create with: wrangler d1 create aurelius-db
-# Then paste the returned database_id below.
+# Created in the Cloudflare dashboard (or: wrangler d1 create aurelius-db).
+# The id below is that database's; it identifies it but grants no access.
 [[d1_databases]]
 binding = "DB"
 database_name = "aurelius-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "e7579201-d0fb-4c06-a6de-e5ce3defcdc9"
 migrations_dir = "migrations"
 
 # --- R2 bucket for video storage ---
@@ -26,8 +33,8 @@ bucket_name = "aurelius-videos"
 
 [vars]
 ENVIRONMENT = "production"
-APP_ORIGIN = "https://REPLACE_WITH_YOUR_DOMAIN"   # frontend + API share this origin; API is under /api
-EMAIL_FROM = "Aurelius <no-reply@REPLACE_WITH_YOUR_DOMAIN>"
+APP_ORIGIN = "https://aureliuscode.com"   # frontend + API share this origin; API is under /api
+EMAIL_FROM = "Aurelius <no-reply@aureliuscode.com>"   # aureliuscode.com must be verified in Resend
 LINK_EXPIRY_HOURS = "48"
 REMINDER_HOURS_BEFORE_EXPIRY = "12"
 

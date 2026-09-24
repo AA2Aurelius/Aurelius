@@ -7,6 +7,7 @@ import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
 import { hitRateLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
 import { AppEnv, Prescription, readJson, requireDoctor } from './common';
+import { registerEvergreenRoutes } from './evergreen';
 
 export const doctor = new Hono<AppEnv>();
 
@@ -72,6 +73,9 @@ doctor.get('/procedures', async (c) => {
   ).all();
   return c.json(results);
 });
+
+// The evergreen explainer videos (GET /api/doctor/evergreen and playlists).
+registerEvergreenRoutes(doctor, '/evergreen');
 
 // -------------------------------------------------------------- patients
 
