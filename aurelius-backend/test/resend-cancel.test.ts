@@ -104,6 +104,17 @@ describe('resend', () => {
   });
 });
 
+describe('invite history', () => {
+  it('shows the email and when the patient confirmed it was them', async () => {
+    const s = await prescribe();
+    const before = ((await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[]).find((r) => r.id === s.prescriptionId);
+    expect(before).toMatchObject({ patient_email: s.patientEmail, confirmed_at: null });
+    await verifiedPatient(s.token, s.patientEmail);
+    const after = ((await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[]).find((r) => r.id === s.prescriptionId);
+    expect(after.confirmed_at).toMatch(/Z$/);
+  });
+});
+
 describe('cancel', () => {
   it('revokes the link and ends verified sessions, and logs who did it and why', async () => {
     const s = await prescribe();

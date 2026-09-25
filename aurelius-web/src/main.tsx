@@ -54,10 +54,11 @@ function App() {
   } else page = <Home />;
   // Doctors and patients get visibly different colors, so it's always clear
   // which side you're looking at.
+  const isHome = !doctor && !watch && !check;
   document.body.className = doctor ? 'theme-doctor' : watch ? 'theme-patient' : 'theme-public';
   return (
     <>
-      <header className="site-header no-print">
+      <header className={`site-header no-print ${isHome ? 'over-hero' : ''}`}>
         <div className="site-header-inner">
           <a href="/" className="brand"><Wordmark /></a>
           <div className="header-right">
@@ -68,7 +69,11 @@ function App() {
       </header>
       <main className={!doctor && !watch && !check ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
       <footer className="site-footer no-print">
-        © {new Date().getFullYear()} Aurelius Code · Because everyone can use a little help from time to time
+        <div className="site-footer-inner">
+          <Wordmark small />
+          <span>Because everyone can use a little help from time to time</span>
+          <span>© {new Date().getFullYear()} Aurelius Code. All rights reserved</span>
+        </div>
       </footer>
     </>
   );

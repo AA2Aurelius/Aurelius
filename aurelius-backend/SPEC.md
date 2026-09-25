@@ -227,7 +227,12 @@ green-and-gold AURELIUS CODE wordmark, a light page with white cards, the
 site blue for the home page hero and bands, text in Palatino. The home
 page has the hero, procedures, how it works, pricing (the wireframe's
 prices, in `pages/Home.tsx`), founder and mission, a certificate check and
-a sign-up band. The doctor's
+a sign-up band. On the home page the header sits on the hero's blue.
+The doctor's Patients page is the "Invites History" table: patient and
+email, date, procedure, hours left, status ("Not accepted yet" until the
+patient confirms the one-time code, then "Confirmed", "Complete",
+"Expired" or "Cancelled"), and a bin button that cancels a live link.
+`GET /api/doctor/patients` includes `patient_email` and `confirmed_at`. The doctor's
 video list follows the "Video List" wireframe (Sort by / Category, each
 card with its procedure tag, patient count and Invite). The patient's
 page has an Info card (which doctor shared the videos, and a yellow

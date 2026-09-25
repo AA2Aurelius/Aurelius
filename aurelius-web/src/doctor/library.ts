@@ -5,6 +5,8 @@ export interface Procedure { id: string; name: string; video_count: number; tota
 export interface PatientRow {
   id: string;
   patient_name: string;
+  patient_email: string;
+  confirmed_at: string | null;
   procedure_id: string;
   procedure_name: string;
   created_at: string;

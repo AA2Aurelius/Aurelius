@@ -105,8 +105,9 @@ registerPreviewRoutes(doctor, '/preview');
 // tokens are never returned here -- only their hashes are stored.
 doctor.get('/patients', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
+    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
             pr.procedure_id, proc.name AS procedure_name,
+            (SELECT MIN(ps.created_at) FROM patient_sessions ps WHERE ps.prescription_id = pr.id) AS confirmed_at,
             (SELECT COUNT(*) FROM video_progress vp
                WHERE vp.prescription_id = pr.id AND vp.completed_at IS NOT NULL) AS videos_done,
             (SELECT COUNT(*) FROM video_progress vp WHERE vp.prescription_id = pr.id) AS videos_total,
