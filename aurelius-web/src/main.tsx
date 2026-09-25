@@ -23,9 +23,13 @@ function TopNav({ doctor }: { doctor: boolean }) {
   };
   return (
     <nav className="top-nav no-print" aria-label="Site">
-      <a href="/doctor?invite=1" onClick={invite}>Invite patient</a>
-      <a href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
-      <a href="/doctor" onClick={go('/doctor')}>Videos</a>
+      <a className="site-link" href="/#procedures">Procedures</a>
+      <a className="site-link" href="/#how">How it works</a>
+      <a className="site-link" href="/#pricing">Pricing</a>
+      <a className="site-link" href="/#about">About</a>
+      <a className="nav-cta" href="/doctor?invite=1" onClick={invite}>Invite patient</a>
+      <a className="nav-btn" href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
+      <a className="nav-btn" href="/doctor" onClick={go('/doctor')}>Videos</a>
     </nav>
   );
 }

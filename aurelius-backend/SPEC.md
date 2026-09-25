@@ -222,8 +222,12 @@ works, and a certificate check). The header on every page except the
 patient's has Invite patient / Patients / Videos buttons into the doctor
 portal (`/doctor?invite=1` opens the Invite pop-up after sign-in).
 
-Look: the whole site is one strong blue with white cards, text in Palatino,
-and the green-and-gold AURELIUS CODE wordmark in the header. The doctor's
+Look: after the Scope of Work wireframes — a white header with the
+green-and-gold AURELIUS CODE wordmark, a light page with white cards, the
+site blue for the home page hero and bands, text in Palatino. The home
+page has the hero, procedures, how it works, pricing (the wireframe's
+prices, in `pages/Home.tsx`), founder and mission, a certificate check and
+a sign-up band. The doctor's
 video list follows the "Video List" wireframe (Sort by / Category, each
 card with its procedure tag, patient count and Invite). The patient's
 page has an Info card (which doctor shared the videos, and a yellow
