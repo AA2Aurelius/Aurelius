@@ -118,7 +118,10 @@ Public:
   Origin are rejected. Accounts are created with `npm run create-doctor`;
   `npm run create-doctor -- --reset --email … --remote` replaces a
   forgotten or exposed password in place, ends that doctor's sessions and
-  clears the sign-in lockout (there is no self-service reset).
+  clears the sign-in lockout (there is no self-service reset);
+  `npm run create-doctor -- --email old@… --new-email new@… --remote`
+  changes a doctor's email (their sign-in and where their reminder emails
+  go), keeping the account and password.
 - **Patient identity:** a 6-digit code emailed to the address the doctor
   entered (10 min expiry, 5 guesses, 60 s resend cooldown, 5 per hour).
   The certificate records this as "verified by one-time code sent to
