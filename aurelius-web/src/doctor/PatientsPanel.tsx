@@ -1,3 +1,4 @@
+import { formatDate } from '../api';
 import { InviteIcon } from '../components/icons';
 import { useInvite, type PatientRow } from './library';
 import { Link } from './nav';
@@ -37,6 +38,7 @@ export function PatientsPanel({ rows, procedureId, seeAll }: { rows: PatientRow[
                   <span className="person-meta">
                     <strong>{r.patient_name}</strong>
                     <span>{procedureId ? '' : `${r.procedure_name} · `}{r.videos_done} of {r.videos_total} videos</span>
+                    <span className="person-date">Invited {formatDate(r.created_at)}</span>
                   </span>
                   <span className={`person-stat ${stat.cls}`} title={stat.title}>{stat.text}</span>
                 </Link>

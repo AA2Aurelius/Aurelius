@@ -46,10 +46,10 @@ export function ProcedurePage({ id }: { id: string }) {
         <div className="stack-lg">
           <div className="row">
             <h1 style={{ margin: 0 }}>{video ? video.title : data.procedure.name}</h1>
-            <span className="pill blue">{data.procedure.name}</span>
+            <span className="cat-pill">{data.procedure.name}</span>
           </div>
           {video ? <VideoFrame key={video.id} src={`/api/doctor/${video.playlist}`} poster={video.poster && `/api/doctor/${video.poster}`} /> : <p className="muted">This procedure has no videos yet.</p>}
-          <section className="stack">
+          <section className="card stack">
             <h2>Videos in this set <span className="muted">({data.videos.length} · {formatDuration(total)})</span></h2>
             <p className="muted">
               Patients watch these in order. Each unlocks after the previous one, and skipping ahead is blocked. This preview

@@ -77,14 +77,16 @@ export function InviteModal({ initialProcedureId, onClose, onSent }: { initialPr
           <SentView sent={sent} onAgain={again} onClose={onClose} />
         ) : (
           <form className="stack" onSubmit={submit}>
-            <label htmlFor="pname">Patient's full name</label>
-            <input id="pname" ref={firstField} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required />
-
-            <label htmlFor="pemail">Patient email</label>
-            <input id="pemail" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
-
-            <label id="proc-label">Videos</label>
-            <div>
+            <div className="float-field">
+              <label htmlFor="pname">Patient's full name</label>
+              <input id="pname" ref={firstField} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required />
+            </div>
+            <div className="float-field">
+              <label htmlFor="pemail">Patient email</label>
+              <input id="pemail" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
+            </div>
+            <div className="float-field">
+              <label id="proc-label">Videos</label>
               <button type="button" className="picker-button" aria-haspopup="listbox" aria-expanded={pickerOpen} aria-labelledby="proc-label" onClick={() => setPickerOpen((o) => !o)}>
                 {chosen ? <strong>{chosen.name}</strong> : <span className="muted">Choose a procedure</span>}
                 <span aria-hidden="true">{pickerOpen ? '▴' : '▾'}</span>
@@ -103,10 +105,10 @@ export function InviteModal({ initialProcedureId, onClose, onSent }: { initialPr
                       >
                         <Thumb src={procedureThumb(p)} poster={procedurePoster(p)} small />
                         <span className="opt-meta">
-                          <span className="pill blue">{p.video_count} videos · {minutes(p.total_seconds)}</span>
+                          <span className="cat-pill">{p.video_count} videos · {minutes(p.total_seconds)}</span>
                           <strong>{p.name}</strong>
                         </span>
-                        <span className="plus-circle" aria-hidden="true">{p.id === procedureId ? '✓' : '+'}</span>
+                        <span className={`plus-circle ${p.id === procedureId ? 'on' : ''}`} aria-hidden="true">{p.id === procedureId ? '✓' : '+'}</span>
                       </button>
                     </li>
                   ))}

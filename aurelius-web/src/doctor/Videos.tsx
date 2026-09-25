@@ -37,6 +37,7 @@ export function Videos() {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [evergreen, setEvergreen] = useState<EvergreenVideo[]>([]);
   const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('order');
   const [playing, setPlaying] = useState<EvergreenVideo | null>(null);
   const [error, setError] = useState('');
 
@@ -88,75 +89,116 @@ export function Videos() {
       open: () => setPlaying(v),
     })),
   ];
-  const shownCount = filter === 'all' ? cards.length : cards.filter((c) => c.group === filter).length;
   const groups = [
     ...sets.map((s) => ({ id: s.procedure.id, label: s.procedure.name, count: s.videos.length })),
     ...(evergreen.length ? [{ id: EVERGREEN, label: 'Before you begin', count: evergreen.length }] : []),
   ];
-  const chips = [{ id: 'all', label: 'All', count: cards.length }, ...groups];
+  const countIn = (group: string) => cards.filter((c) => c.group === group).length;
+  // Patients per procedure (current links), as on the wireframe's cards.
+  const patientsIn = (group: string) => patients.filter((r) => r.procedure_id === group && !r.revoked_at).length;
+  const shown = cards.filter((c) => filter === 'all' || c.group === filter);
+  const flat = sort !== 'order';
+  if (sort === 'title') shown.sort((x, y) => x.title.localeCompare(y.title));
+  if (sort === 'short') shown.sort((x, y) => x.durationSeconds - y.durationSeconds);
+  if (sort === 'long') shown.sort((x, y) => y.durationSeconds - x.durationSeconds);
   const active = patients.filter((r) => !r.revoked_at).slice(0, 8);
+
+  const card = (c: Card) => {
+    const isProcedure = c.group !== EVERGREEN;
+    const n = patientsIn(c.group);
+    return (
+      <article key={c.key} className="vid-card">
+        <Thumb src={c.src} poster={c.poster} label={`View ${c.title}`} onClick={c.open} />
+        <div className="vid-card-body">
+          <div className="vid-card-title">
+            <h3>{c.title}</h3>
+            <span className="cat-pill">{c.category}</span>
+          </div>
+          <p className="vid-desc">
+            {isProcedure
+              ? `Video ${c.order} of ${countIn(c.group)} in the ${c.category} set · ${formatDuration(c.durationSeconds)}.`
+              : `Optional video every patient can watch first · ${formatDuration(c.durationSeconds)}.`}{' '}
+            <button className="link-button inline" onClick={c.open}>View details</button>
+          </p>
+          <div className="vid-card-foot">
+            {isProcedure ? (
+              <>
+                <span><strong className="count">{n}</strong> {n === 1 ? 'patient' : 'patients'}</span>
+                <button className="invite-link" onClick={() => invite(c.group)}>
+                  Invite patient <span className="icon-button" aria-hidden="true"><InviteIcon /></span>
+                </button>
+              </>
+            ) : (
+              <span className="muted">Shown to every patient</span>
+            )}
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="procedure-layout">
       <div className="stack-lg">
-        <div className="chips" role="group" aria-label="Show videos for">
-          {chips.map((c) => (
-            <button key={c.id} className={`chip ${filter === c.id ? 'active' : ''}`} aria-pressed={filter === c.id} onClick={() => setFilter(c.id)}>
-              {c.label} ({c.count})
+        <div className="list-head">
+          <h1>{filter === 'all' ? 'All Videos' : groups.find((g) => g.id === filter)?.label} ({shown.length})</h1>
+          <div className="list-tools">
+            <label className="select-wrap">
+              <span className="sr-only">Sort by</span>
+              <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort by">
+                <option value="order">Sort by: procedure order</option>
+                <option value="title">Sort by: title A–Z</option>
+                <option value="short">Sort by: shortest first</option>
+                <option value="long">Sort by: longest first</option>
+              </select>
+            </label>
+            <label className="select-wrap">
+              <span className="sr-only">Category</span>
+              <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Category">
+                <option value="all">Category: all ({cards.length})</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.label} ({g.count})</option>)}
+              </select>
+            </label>
+            <button className="button" onClick={() => invite(filter !== 'all' && filter !== EVERGREEN ? filter : undefined)}>
+              <InviteIcon /> Invite patient
             </button>
-          ))}
-        </div>
-        <div className="row">
-          <h1 style={{ margin: 0 }}>{filter === 'all' ? 'All videos' : chips.find((c) => c.id === filter)?.label} ({shownCount})</h1>
-          <button className="button" onClick={() => invite(filter !== 'all' && filter !== EVERGREEN ? filter : undefined)}>
-            <InviteIcon /> Invite patient
-          </button>
+          </div>
         </div>
 
         {cards.length === 0 && (
           <div className="card"><p>No videos yet. They're added with <code>npm run package-video</code>.</p></div>
         )}
-        {groups
-          .filter((g) => filter === 'all' || g.id === filter)
-          .map((g) => {
-            const groupCards = cards.filter((c) => c.group === g.id);
-            if (groupCards.length === 0) return null;
-            const isProcedure = g.id !== EVERGREEN;
-            return (
-              <section key={g.id} className="video-group">
-                <div className="video-group-head">
-                  <div>
-                    <h2>{g.label}</h2>
-                    <p className="muted">
-                      {isProcedure
-                        ? `One procedure: ${groupCards.length} videos, watched in order 1–${groupCards.length}. The certificate is issued once all ${groupCards.length} are complete.`
-                        : 'Optional videos every patient can watch first. Not part of the certificate.'}
-                    </p>
+        {flat ? (
+          <div className="video-grid">{shown.map(card)}</div>
+        ) : (
+          groups
+            .filter((g) => filter === 'all' || g.id === filter)
+            .map((g) => {
+              const groupCards = shown.filter((c) => c.group === g.id);
+              if (groupCards.length === 0) return null;
+              const isProcedure = g.id !== EVERGREEN;
+              return (
+                <section key={g.id} className="video-group">
+                  <div className="video-group-head">
+                    <div>
+                      <h2>{g.label}</h2>
+                      <p className="muted">
+                        {isProcedure
+                          ? `One procedure: ${groupCards.length} videos, watched in order 1–${groupCards.length}. The certificate is issued once all ${groupCards.length} are complete.`
+                          : 'Optional videos every patient can watch first. Not part of the certificate.'}
+                      </p>
+                    </div>
+                    {isProcedure && (
+                      <button className="invite-link" onClick={() => invite(g.id)}>
+                        Invite patient to {g.label} <span className="icon-button" aria-hidden="true"><InviteIcon /></span>
+                      </button>
+                    )}
                   </div>
-                  {isProcedure && (
-                    <button className="invite-link" onClick={() => invite(g.id)}>
-                      Invite patient to {g.label} <span className="icon-button" aria-hidden="true"><InviteIcon /></span>
-                    </button>
-                  )}
-                </div>
-                <div className="video-grid">
-                  {groupCards.map((c) => (
-                    <article key={c.key} className="vid-card">
-                      <Thumb src={c.src} poster={c.poster} label={`View ${c.title}`} onClick={c.open} />
-                      <div className="vid-card-body">
-                        <span className="vid-category">{isProcedure ? `${c.category} · ${c.order} of ${groupCards.length}` : c.category}</span>
-                        <h3>{c.title}</h3>
-                        <div className="vid-card-foot">
-                          <span className="muted">{formatDuration(c.durationSeconds)}</span>
-                          <button className="link-button" onClick={c.open}>View</button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+                  <div className="video-grid">{groupCards.map(card)}</div>
+                </section>
+              );
+            })
+        )}
       </div>
 
       <PatientsPanel rows={active} seeAll />

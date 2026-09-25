@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { ApiError, api } from '../api';
 import type { Doctor } from './DoctorApp';
 
-export function Login({ notice, onSignedIn }: { notice: string; onSignedIn: (d: Doctor) => void }) {
+export function Login({ notice, intent, onSignedIn }: { notice: string; intent?: string; onSignedIn: (d: Doctor) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,6 +26,7 @@ export function Login({ notice, onSignedIn }: { notice: string; onSignedIn: (d: 
   return (
     <form className="card stack narrow" onSubmit={submit}>
       <h1>Doctor sign in</h1>
+      {intent && <p className="muted" style={{ margin: 0 }}>{intent}</p>}
       {notice && <p className="banner"><span>{notice}</span></p>}
       <label htmlFor="email">Email</label>
       <input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />

@@ -40,6 +40,7 @@ patient.get('/:token', async (c) => {
   }
 
   const proc = await c.env.DB.prepare(`SELECT name FROM procedures WHERE id = ?`).bind(p.procedure_id).first<{ name: string }>();
+  const doctor = await c.env.DB.prepare(`SELECT name FROM doctors WHERE id = ?`).bind(p.doctor_id).first<{ name: string }>();
   const { results } = await c.env.DB.prepare(
     `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
@@ -55,7 +56,7 @@ patient.get('/:token', async (c) => {
     return { ...rest, unlocked, complete: !!v.completed_at, poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null };
   });
 
-  return c.json({ verified: true, patientName: p.patient_name, procedureName: proc?.name, hoursLeft, certified: c.get('certified'), videos });
+  return c.json({ verified: true, patientName: p.patient_name, procedureName: proc?.name, doctorName: doctor?.name ?? null, hoursLeft, certified: c.get('certified'), videos });
 });
 
 // ------------------------------------------------------- one-time codes

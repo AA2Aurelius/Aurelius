@@ -48,8 +48,8 @@ export function Home() {
         <svg className="home-shield" viewBox="0 0 120 140" aria-hidden="true">
           <path d="M60 6 L110 24 V68 C110 102 88 124 60 134 C32 124 10 102 10 68 V24 Z" fill="#fff" stroke="#dfe6ff" strokeWidth="3" />
           <path d="M60 18 L100 32 V68 C100 96 82 114 60 122 C38 114 20 96 20 68 V32 Z" fill="#eef2ff" />
-          <rect x="52" y="44" width="16" height="52" rx="3" fill="#8fb0ff" />
-          <rect x="34" y="62" width="52" height="16" rx="3" fill="#8fb0ff" />
+          <rect x="52" y="44" width="16" height="52" rx="3" fill="#d62828" />
+          <rect x="34" y="62" width="52" height="16" rx="3" fill="#d62828" />
         </svg>
       </section>
 

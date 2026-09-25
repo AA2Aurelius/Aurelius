@@ -1,0 +1,386 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+
+ ⛅️ wrangler 4.136.3
+────────────────────
+Using secrets defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                                                                        Resource                  Mode
+env.DB (aurelius-db)                                                           D1 Database               local
+env.VIDEOS (aurelius-videos)                                                   R2 Bucket                 local
+env.ENVIRONMENT ("(hidden)")                                                   Environment Variable      local
+env.APP_ORIGIN ("(hidden)")                                                    Environment Variable      local
+env.EMAIL_FROM ("Aurelius <no-reply@aureliuscode.com>")                        Environment Variable      local
+env.LINK_EXPIRY_HOURS ("48")                                                   Environment Variable      local
+env.REMINDER_HOURS_BEFORE_EXPIRY ("12")                                        Environment Variable      local
+env.OTP_SECRET ("(hidden)")                                                    Environment Variable      local
+env.SIGNING_KEY_JWK ("(hidden)")                                               Environment Variable      local
+
+[wrangler:warn] Unable to fetch the `Request.cf` object! Falling back to a default placeholder...
+Error: Request was cancelled.
+    at new DOMException (node:internal/per_context/domexception:76:18)
+    at makeAppropriateNetworkError (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/response.js:488:38)
+    at httpNetworkFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1971:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async httpNetworkOrCacheFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1600:29)
+    at async httpFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1142:33)
+    at async mainFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:596:20)
+⎔ Starting local server...
+[wrangler:warn] Unable to fetch the `Request.cf` object! Falling back to a default placeholder...
+Error: Request was cancelled.
+    at new DOMException (node:internal/per_context/domexception:76:18)
+    at makeAppropriateNetworkError (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/response.js:488:38)
+    at httpNetworkFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1971:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async httpNetworkOrCacheFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1600:29)
+    at async httpFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:1142:33)
+    at async mainFetch (/home/user/Aurelius/aurelius-backend/node_modules/undici/lib/web/fetch/index.js:596:20)
+[wrangler:info] ✨ Parsed 2 valid header rules.
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mScheduled Workers are not automatically triggered during local development.[0m
+
+  To manually trigger a scheduled event, run:
+    curl "http://localhost:8787/cdn-cgi/local/scheduled"
+  For more details, see [4mhttps://developers.cloudflare.com/workers/configuration/cron-triggers/#test-cron-triggers-locally[0m
+
+
+Wrangler detected this dev session is running in an AI agent.
+The Local Explorer API is available at http://localhost:8787/cdn-cgi/local/explorer/api
+Useful routes:
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/local/workers - local Workers and bindings
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/storage/kv/namespaces - KV namespaces
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/d1/database - D1 databases
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/r2/buckets - R2 buckets
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/workers/durable_objects/namespaces - Durable Object namespaces
+  GET http://localhost:8787/cdn-cgi/local/explorer/api/workflows - Workflows
+  POST http://localhost:8787/cdn-cgi/local/explorer/api/local/observability/query - run a read-only SQL query (SELECT/WITH only) over captured request traces and console logs. Tables: spans, logs (read attributes via json(attributes)). Example:
+    curl -X POST http://localhost:8787/cdn-cgi/local/explorer/api/local/observability/query -H 'Content-Type: application/json' -d '{"sql":"SELECT service, name, outcome, duration_ms FROM spans WHERE parent_id IS NULL LIMIT 20"}'
+  POST http://localhost:8787/cdn-cgi/local/explorer/api/local/observability/clear - clear all captured traces and logs
+If the routes above don't cover what you need, fetch the full OpenAPI schema (large - use only as a last resort):
+  GET http://localhost:8787/cdn-cgi/local/explorer/api - OpenAPI schema
+[wrangler:info] Ready on http://localhost:8787
+[wrangler:info] GET / 200 OK (635ms)
+[wrangler:info] GET / 200 OK (9ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (9ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (15ms)
+[wrangler:info] GET /doctor 200 OK (8ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (46ms)
+[wrangler:info] POST /api/doctor/login 401 Unauthorized (82ms)
+[wrangler:info] POST /api/doctor/login 200 OK (307ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (16ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (22ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (194ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (178ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (11ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (46ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (45ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (9ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (382ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (294ms)
+[wrangler:info] GET / 200 OK (6ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (4ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (10ms)
+[wrangler:info] GET /doctor 200 OK (5ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (4ms)
+[wrangler:info] POST /api/doctor/login 401 Unauthorized (68ms)
+[wrangler:info] POST /api/doctor/login 200 OK (86ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (9ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (18ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (34ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (24ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (8ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (22ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (21ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (11ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (21ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (12ms)
+[wrangler:info] GET / 200 OK (5ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (4ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (11ms)
+[wrangler:info] GET /doctor 200 OK (4ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (6ms)
+[wrangler:info] POST /api/doctor/login 401 Unauthorized (63ms)
+[wrangler:info] POST /api/doctor/login 200 OK (62ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (8ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (16ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (27ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (17ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (13ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (26ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (28ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (10ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (24ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (11ms)
+[dev email] to=e2e-muhkjvzi@example.com subject="Dr. Test has shared your Test Procedure information videos"
+Hello E2E Patient muhkjvzi,
+
+Dr. Test has asked you to watch a short series of videos about your Test Procedure.
+
+Open this link to start (it expires in 48 hours):
+http://localhost:8787/watch/r7tD36ZOynPtt-g0-7_zB-n2U2ty4V0s7RbOktTsyCo
+
+We'll email a one-time code to this address to confirm it's you before the first video.
+[wrangler:info] POST /api/doctor/prescribe 201 Created (25ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (16ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (15ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (24ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (14ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/prescriptions/2d656fec-9140-44e9-b854-d40cfd9deac3 200 OK (15ms)
+[dev email] to=e2e-muhkjvzi-fixed@example.com subject="Your new link for your Test Procedure information videos"
+Hello E2E Patient muhkjvzi,
+
+Dr. Test has sent you a new link for your Test Procedure videos. Any earlier link no longer works.
+
+Open this link to start (it expires in 48 hours):
+http://localhost:8787/watch/VwvMxVEs_s2kS872JXbF74TqDt7axUPbf88mXv3yies
+
+We'll email a one-time code to this address to confirm it's you before the first video.
+[wrangler:info] POST /api/doctor/prescriptions/2d656fec-9140-44e9-b854-d40cfd9deac3/resend 201 Created (32ms)
+[wrangler:info] GET /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (10ms)
+[wrangler:info] GET /api/doctor/prescriptions/2d656fec-9140-44e9-b854-d40cfd9deac3 200 OK (10ms)
+[wrangler:info] GET /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (11ms)
+[wrangler:info] POST /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60/cancel 200 OK (12ms)
+[wrangler:info] GET /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (12ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (12ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc 200 OK (16ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc/certificate 200 OK (28ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc 200 OK (11ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (9ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (22ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (23ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (26ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (26ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (12ms)
+[wrangler:info] GET /assets/hls.light-iZXIoAaw.js 200 OK (15ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/playlist.m3u8 200 OK (16ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/init.mp4 200 OK (14ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/seg/0.m4s 200 OK (29ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/seg/1.m4s 200 OK (15ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (14ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (13ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (28ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (18ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (34ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (12ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/playlist.m3u8 200 OK (16ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/init.mp4 200 OK (12ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/0.m4s 200 OK (16ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/1.m4s 200 OK (11ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/2.m4s 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/3.m4s 200 OK (32ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/playlist.m3u8 200 OK (45ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (57ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/init.mp4 200 OK (12ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/0.m4s 200 OK (18ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/1.m4s 200 OK (13ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/2.m4s 200 OK (11ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/3.m4s 200 OK (15ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/4.m4s 200 OK (10ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (13ms)
+[wrangler:info] GET /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (11ms)
+[wrangler:info] GET /doctor/patients/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (5ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (4ms)
+[wrangler:info] POST /api/doctor/login 200 OK (61ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (10ms)
+[wrangler:info] GET /api/doctor/prescriptions/1d65d9e2-24ce-4c09-b992-1c40d9a77c60 200 OK (17ms)
+[wrangler:info] GET /api/doctor/procedures 401 Unauthorized (5ms)
+[wrangler:info] GET /api/doctor/patients 401 Unauthorized (9ms)
+[wrangler:info] GET /api/doctor/evergreen 401 Unauthorized (17ms)
+[wrangler:info] POST /api/doctor/login 200 OK (70ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (9ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (20ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (20ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (18ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (8ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (7ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (20ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (23ms)
+[wrangler:info] POST /api/doctor/logout 200 OK (11ms)
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (4ms)
+[wrangler:info] GET / 200 OK (5ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (10ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (10ms)
+[wrangler:info] GET /doctor 200 OK (7ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (5ms)
+[wrangler:info] POST /api/doctor/login 401 Unauthorized (58ms)
+[wrangler:info] POST /api/doctor/login 200 OK (95ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (11ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (19ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (19ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (16ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (16ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (23ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (11ms)
+[dev email] to=e2e-muhkk30b@example.com subject="Dr. Test has shared your Test Procedure information videos"
+Hello E2E Patient muhkk30b,
+
+Dr. Test has asked you to watch a short series of videos about your Test Procedure.
+
+Open this link to start (it expires in 48 hours):
+http://localhost:8787/watch/LmJFllK2jM7xeeoEBMWN5B9AW0xIhGyM0euehloXLLE
+
+We'll email a one-time code to this address to confirm it's you before the first video.
+[wrangler:info] POST /api/doctor/prescribe 201 Created (20ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (12ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (13ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (19ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (10ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (7ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (26ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (27ms)
+[wrangler:info] GET /api/doctor/prescriptions/6918164b-bea3-4b9c-93cb-058e9cf61d26 200 OK (15ms)
+[dev email] to=e2e-muhkk30b-fixed@example.com subject="Your new link for your Test Procedure information videos"
+Hello E2E Patient muhkk30b,
+
+Dr. Test has sent you a new link for your Test Procedure videos. Any earlier link no longer works.
+
+Open this link to start (it expires in 48 hours):
+http://localhost:8787/watch/n-fXHegOgGhawVuClD6DOd-b-LRWY9-QiFIYDn92vgU
+
+We'll email a one-time code to this address to confirm it's you before the first video.
+[wrangler:info] POST /api/doctor/prescriptions/6918164b-bea3-4b9c-93cb-058e9cf61d26/resend 201 Created (23ms)
+[wrangler:info] GET /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (9ms)
+[wrangler:info] GET /api/doctor/prescriptions/6918164b-bea3-4b9c-93cb-058e9cf61d26 200 OK (12ms)
+[wrangler:info] GET /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (10ms)
+[wrangler:info] POST /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5/cancel 200 OK (11ms)
+[wrangler:info] GET /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (8ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (12ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc 200 OK (13ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc/certificate 200 OK (24ms)
+[wrangler:info] GET /api/doctor/prescriptions/f2eba3c9-e4fe-4368-88a6-6a9f369139fc 200 OK (11ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (10ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (22ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (23ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (12ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (8ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (21ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (21ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (13ms)
+[wrangler:info] GET /assets/hls.light-iZXIoAaw.js 200 OK (15ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/playlist.m3u8 200 OK (14ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/init.mp4 200 OK (10ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/seg/0.m4s 200 OK (14ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/seg/1.m4s 200 OK (10ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (13ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (22ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (9ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (17ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (15ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/playlist.m3u8 200 OK (17ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/init.mp4 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/0.m4s 200 OK (16ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/1.m4s 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/2.m4s 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/seg/3.m4s 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/playlist.m3u8 200 OK (7ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/init.mp4 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/0.m4s 200 OK (18ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/1.m4s 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/2.m4s 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/3.m4s 200 OK (14ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/seg/4.m4s 200 OK (9ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (12ms)
+[wrangler:info] GET /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (13ms)
+[wrangler:info] GET /doctor/patients/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (4ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (4ms)
+[wrangler:info] POST /api/doctor/login 200 OK (59ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (13ms)
+[wrangler:info] GET /api/doctor/prescriptions/277ff2eb-6545-4b83-bab9-6443e056bbd5 200 OK (18ms)
+[wrangler:info] GET /api/doctor/procedures 401 Unauthorized (5ms)
+[wrangler:info] GET /api/doctor/patients 401 Unauthorized (12ms)
+[wrangler:info] GET /api/doctor/evergreen 401 Unauthorized (12ms)
+[wrangler:info] POST /api/doctor/login 200 OK (61ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (13ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (13ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (20ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (9ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (6ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (20ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (19ms)
+[wrangler:info] POST /api/doctor/logout 200 OK (8ms)
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (4ms)
+[wrangler:info] POST /api/doctor/login 200 OK (68ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (15ms)
+[dev email] to=p-1790377554@example.com subject="Dr. Test has shared your Test Procedure information videos"
+Hello Pat Tester,
+
+Dr. Test has asked you to watch a short series of videos about your Test Procedure.
+
+Open this link to start (it expires in 48 hours):
+http://localhost:8787/watch/cmJPAjihFUwYTJ6-CKwuTV9U7UXPBfuUdY_m3kDQlO0
+
+We'll email a one-time code to this address to confirm it's you before the first video.
+[wrangler:info] POST /api/doctor/prescribe 201 Created (17ms)
+[wrangler:info] POST /api/doctor/logout 200 OK (6ms)
+[wrangler:info] GET / 200 OK (5ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (4ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (10ms)
+[wrangler:info] GET /doctor 200 OK (4ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (6ms)
+[wrangler:info] POST /api/doctor/login 200 OK (66ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (7ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (12ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (25ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (19ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (23ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (19ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (19ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (10ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (23ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (23ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (9ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (15ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (15ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (12ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (27ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (28ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (20ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (21ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (20ms)
+[wrangler:info] GET / 200 OK (6ms)
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (6ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (13ms)
+[wrangler:info] GET /doctor 200 OK (5ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /api/doctor/me 401 Unauthorized (14ms)
+[wrangler:info] POST /api/doctor/login 200 OK (60ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (12ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (20ms)
+[wrangler:info] GET /api/doctor/evergreen 200 OK (34ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (22ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (16ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (7ms)
+[wrangler:info] GET /api/doctor/procedures/5a58ffdd-5ede-46e6-8c68-232c6f8b85d4/videos 200 OK (8ms)
+[wrangler:info] GET /api/doctor/preview/5442e493-7091-4cc3-8f7b-e812ecda22e2/poster.jpg 200 OK (9ms)
+[wrangler:info] GET /api/doctor/preview/1d3626a9-f476-46be-a93e-3e87b30ff530/poster.jpg 200 OK (24ms)
+[wrangler:info] GET /api/doctor/evergreen/422de27d-aead-4c06-9b79-49d859848ec1/poster.jpg 200 OK (25ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (11ms)
+[wrangler:info] GET /api/doctor/procedures 200 OK (8ms)
+[wrangler:info] GET /api/doctor/patients 200 OK (16ms)
+[wrangler:info] GET /watch/cmJPAjihFUwYTJ6-CKwuTV9U7UXPBfuUdY_m3kDQlO0 200 OK (6ms) `Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior
+[wrangler:info] GET /assets/index-Cp_OIOfz.js 200 OK (4ms)
+[wrangler:info] GET /assets/index-Co_zXaxf.css 200 OK (12ms)
+[wrangler:info] GET /api/watch/cmJPAjihFUwYTJ6-CKwuTV9U7UXPBfuUdY_m3kDQlO0 200 OK (17ms)
+[dev email] to=p-1790377554@example.com subject="Your Aurelius verification code: 578728"
+Your verification code is 578728. It expires in 10 minutes.
+
+If you didn't request this, you can ignore this email.
+[wrangler:info] POST /api/watch/cmJPAjihFUwYTJ6-CKwuTV9U7UXPBfuUdY_m3kDQlO0/otp/send 200 OK (23ms)
+[wrangler:info] POST /api/watch/cmJPAjihFUwYTJ6-CKwuTV9U7UXPBfuUdY_m3kDQlO0/otp/verify 400 Bad Request (18ms)

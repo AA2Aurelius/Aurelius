@@ -222,6 +222,13 @@ works, and a certificate check). The header on every page except the
 patient's has Invite patient / Patients / Videos buttons into the doctor
 portal (`/doctor?invite=1` opens the Invite pop-up after sign-in).
 
+Look: the whole site is one strong blue with white cards, text in Palatino,
+and the green-and-gold AURELIUS CODE wordmark in the header. The doctor's
+video list follows the "Video List" wireframe (Sort by / Category, each
+card with its procedure tag, patient count and Invite). The patient's
+page has an Info card (which doctor shared the videos, and a yellow
+time-left bar); the portal response includes `doctorName` for it.
+
 The patient flow at `/watch/{token}`:
 1. **Confirm it's you** — Turnstile, then a 6-digit code emailed to the
    address the doctor entered.

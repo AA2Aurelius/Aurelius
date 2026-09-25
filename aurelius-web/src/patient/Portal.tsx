@@ -17,6 +17,7 @@ export interface PortalData {
   verified: true;
   patientName: string;
   procedureName: string;
+  doctorName: string | null;
   hoursLeft: number;
   certified: boolean;
   videos: PortalVideo[];
@@ -113,6 +114,25 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
 
         </div>
 
+        <div className="watch-side-col">
+        <aside className="info-card" aria-label="Info">
+          <div className="info-card-body">
+            <h2>Info</h2>
+            {data.doctorName && (
+              <>
+                <p className="info-kicker">These videos were shared with you by</p>
+                <p className="info-doctor">{data.doctorName}</p>
+              </>
+            )}
+            <p className="muted">
+              Watch all {data.videos.length} in order. Each one unlocks the next, and your certificate is ready when the last one
+              is done.
+            </p>
+          </div>
+          <div className={`info-timer ${data.certified ? 'done' : expired ? 'expired' : ''}`}>
+            {data.certified ? '✓ All videos complete' : expired ? 'Link expired' : <>◷ {timeLeft(data.hoursLeft)} <small>left</small></>}
+          </div>
+        </aside>
         <aside className="watch-side">
           <h2>
             Your videos <span className="muted">({done} of {data.videos.length} complete)</span>
@@ -143,7 +163,14 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
             })}
           </ol>
         </aside>
+        </div>
       </div>
     </div>
   );
+}
+
+// "21H 30M", as on the wireframe's timer bar.
+function timeLeft(hours: number): string {
+  const total = Math.max(0, Math.floor(hours * 60));
+  return `${Math.floor(total / 60)}H ${String(total % 60).padStart(2, '0')}M`;
 }

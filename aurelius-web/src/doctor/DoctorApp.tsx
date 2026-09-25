@@ -35,7 +35,10 @@ export function DoctorApp() {
   const closeInvite = useCallback(() => setInviteFor(undefined), []);
   const sentInvite = useCallback(() => setRefresh((n) => n + 1), []);
   useEffect(() => {
-    const open = () => setInviteFor('');
+    const open = () => {
+      setInviteFor('');
+      if (!signedIn.current) setNotice('');
+    };
     addEventListener(OPEN_INVITE, open);
     // Arriving from the home page's Invite button.
     if (new URLSearchParams(location.search).has('invite')) {
@@ -66,7 +69,14 @@ export function DoctorApp() {
 
   if (doctor === undefined) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
   if (doctor === null) {
-    return <Login notice={notice} onSignedIn={(d) => { setNotice(''); signIn(d); }} />;
+    // Say where signing in leads, so the header buttons visibly do something
+    // before sign-in.
+    const where = inviteFor !== undefined
+      ? 'Sign in to invite a patient.'
+      : path.startsWith('/doctor/patients')
+        ? 'Sign in to see your patients.'
+        : 'Sign in to see your videos.';
+    return <Login notice={notice} intent={where} onSignedIn={(d) => { setNotice(''); signIn(d); }} />;
   }
 
   const signOut = async () => {
