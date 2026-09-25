@@ -9,7 +9,7 @@ import { PatientsPanel } from './PatientsPanel';
 
 interface ProcedureVideos {
   procedure: { id: string; name: string };
-  videos: Array<{ id: string; title: string; order: number; durationSeconds: number; playlist: string }>;
+  videos: Array<{ id: string; title: string; order: number; durationSeconds: number; playlist: string; poster: string | null }>;
 }
 
 // One card per video, from every procedure plus the "Before you begin" ones.
@@ -21,6 +21,7 @@ interface Card {
   order: number;
   durationSeconds: number;
   src: string;             // preview playlist
+  poster: string | null;    // still frame
   open: () => void;
 }
 
@@ -58,7 +59,7 @@ export function Videos() {
   if (error) return <div className="card"><p className="error">{error}</p></div>;
   if (!procedures) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
   if (playing) {
-    return <PlainPlayer title={playing.title} src={`/api/doctor/${playing.playlist}`} backLabel="← All videos" onBack={() => setPlaying(null)} />;
+    return <PlainPlayer title={playing.title} src={`/api/doctor/${playing.playlist}`} poster={playing.poster && `/api/doctor/${playing.poster}`} backLabel="← All videos" onBack={() => setPlaying(null)} />;
   }
 
   const cards: Card[] = [
@@ -71,6 +72,7 @@ export function Videos() {
         order: v.order,
         durationSeconds: v.durationSeconds,
         src: `/api/doctor/${v.playlist}`,
+        poster: v.poster ? `/api/doctor/${v.poster}` : null,
         open: () => navigate(`/doctor/procedures/${encodeURIComponent(s.procedure.id)}?video=${encodeURIComponent(v.id)}`),
       }))
     ),
@@ -82,6 +84,7 @@ export function Videos() {
       order: v.order,
       durationSeconds: v.durationSeconds,
       src: `/api/doctor/${v.playlist}`,
+      poster: v.poster ? `/api/doctor/${v.poster}` : null,
       open: () => setPlaying(v),
     })),
   ];
@@ -139,7 +142,7 @@ export function Videos() {
                 <div className="video-grid">
                   {groupCards.map((c) => (
                     <article key={c.key} className="vid-card">
-                      <Thumb src={c.src} label={`View ${c.title}`} onClick={c.open} />
+                      <Thumb src={c.src} poster={c.poster} label={`View ${c.title}`} onClick={c.open} />
                       <div className="vid-card-body">
                         <span className="vid-category">{isProcedure ? `${c.category} · ${c.order} of ${groupCards.length}` : c.category}</span>
                         <h3>{c.title}</h3>

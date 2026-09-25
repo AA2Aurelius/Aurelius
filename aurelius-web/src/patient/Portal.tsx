@@ -10,6 +10,7 @@ export interface PortalVideo {
   duration_seconds: number;
   unlocked: boolean;
   complete: boolean;
+  poster: string | null;
 }
 
 export interface PortalData {
@@ -21,7 +22,7 @@ export interface PortalData {
   videos: PortalVideo[];
 }
 
-export function Portal({ data, evergreen, evergreenBase, player, playingId, onPlay, onPlayEvergreen, onCertificate }: {
+export function Portal({ data, evergreen, evergreenBase: base, player, playingId, onPlay, onPlayEvergreen, onCertificate }: {
   data: PortalData;
   // The video being watched, shown in the main area in place of "Up next".
   player?: ReactNode;
@@ -74,11 +75,32 @@ export function Portal({ data, evergreen, evergreenBase, player, playingId, onPl
         )
       )}
 
+      {evergreen.length > 0 && (
+        <section className="stack">
+          <h2 style={{ margin: 0 }}>Before you begin <span className="muted" style={{ fontWeight: 600, fontSize: '0.9rem' }}>· optional</span></h2>
+          <div className="evergreen-row">
+            {evergreen.map((v) => (
+              <article key={v.id} className="vid-card">
+                <Thumb src={`${base}/${v.playlist}`} poster={v.poster && `${base}/${v.poster}`} label={`Watch ${v.title}`} onClick={() => onPlayEvergreen(v)} />
+                <div className="vid-card-body">
+                  <span className="vid-category">Aurelius Code</span>
+                  <h3>{v.title}</h3>
+                  <div className="vid-card-foot">
+                    <span className="muted">{formatDuration(v.durationSeconds)}</span>
+                    <button className="button secondary small" onClick={() => onPlayEvergreen(v)}>Watch</button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="watch-layout">
         <div className="watch-main stack-lg">
           {player ?? (next && (
             <section className="up-next" aria-label="Up next">
-              <Thumb src={null} label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
+              <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
               <div className="up-next-meta">
                 <div>
                   <p className="muted" style={{ margin: 0 }}>Up next · Video {next.order_index} of {data.videos.length}</p>
@@ -89,23 +111,6 @@ export function Portal({ data, evergreen, evergreenBase, player, playingId, onPl
             </section>
           ))}
 
-          {evergreen.length > 0 && (
-            <section>
-              <h2>Before you begin</h2>
-              <ul className="video-list">
-                {evergreen.map((v) => (
-                  <li key={v.id} className="video-row">
-                    <Thumb src={`${evergreenBase}/${v.playlist}`} small />
-                    <div className="video-meta">
-                      <span className="video-title">{v.title}</span>
-                      <span className="muted">{formatDuration(v.durationSeconds)} · optional</span>
-                    </div>
-                    <button className="button secondary small" onClick={() => onPlayEvergreen(v)}>Watch</button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
 
         <aside className="watch-side">
@@ -117,7 +122,11 @@ export function Portal({ data, evergreen, evergreenBase, player, playingId, onPl
               const now = playingId === v.id;
               return (
                 <li key={v.id} className={`video-row ${v.complete ? 'complete' : ''} ${!v.unlocked ? 'locked' : ''} ${now || (!playingId && next?.id === v.id) ? 'current' : ''}`}>
-                  <span className="video-status" aria-hidden="true">{v.complete ? '✓' : v.unlocked ? v.order_index : '🔒'}</span>
+                  {v.poster ? (
+                    <Thumb src={null} poster={`${base}/${v.poster}`} small badge={v.complete ? '✓' : v.unlocked ? String(v.order_index) : '🔒'} />
+                  ) : (
+                    <span className="video-status" aria-hidden="true">{v.complete ? '✓' : v.unlocked ? v.order_index : '🔒'}</span>
+                  )}
                   <div className="video-meta">
                     <span className="video-title">{v.title}</span>
                     <span className="muted">

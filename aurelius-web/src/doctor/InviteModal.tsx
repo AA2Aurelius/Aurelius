@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { ApiError, formatDateTime } from '../api';
 import { Thumb } from '../components/Thumb';
-import { minutes, procedureThumb, type PatientRow, type Procedure } from './library';
+import { minutes, procedurePoster, procedureThumb, type PatientRow, type Procedure } from './library';
 import { Link, doctorApi } from './nav';
 
 interface Sent { prescriptionId: string; watchUrl: string; expiresAt: string; emailSent: boolean; patientName: string; patientEmail: string }
@@ -101,7 +101,7 @@ export function InviteModal({ initialProcedureId, onClose, onSent }: { initialPr
                         className="picker-option"
                         onClick={() => { setProcedureId(p.id); setPickerOpen(false); }}
                       >
-                        <Thumb src={procedureThumb(p)} small />
+                        <Thumb src={procedureThumb(p)} poster={procedurePoster(p)} small />
                         <span className="opt-meta">
                           <span className="pill blue">{p.video_count} videos · {minutes(p.total_seconds)}</span>
                           <strong>{p.name}</strong>

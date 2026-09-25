@@ -58,7 +58,7 @@ export function WatchApp({ token }: { token: string }) {
 
   switch (view.kind) {
     case 'evergreen':
-      return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
+      return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} poster={view.video.poster && `${base}/${view.video.poster}`} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
     case 'certificate':
       return <CertificateView load={() => api<CertificateResponse>(`${base}/certificate`)} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
     default: {

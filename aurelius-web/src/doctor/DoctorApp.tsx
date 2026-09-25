@@ -13,6 +13,9 @@ import { Patients } from './Patients';
 import { ProcedurePage } from './ProcedurePage';
 import { Videos } from './Videos';
 
+// Fired by the header's Invite button.
+export const OPEN_INVITE = 'aurelius:open-invite';
+
 export interface Doctor { id: string; name: string; email: string }
 
 // Everything under /doctor. Signed-out visitors see the sign-in form at any
@@ -31,6 +34,16 @@ export function DoctorApp() {
   const openInvite = useCallback((procedureId?: string) => setInviteFor(procedureId ?? ''), []);
   const closeInvite = useCallback(() => setInviteFor(undefined), []);
   const sentInvite = useCallback(() => setRefresh((n) => n + 1), []);
+  useEffect(() => {
+    const open = () => setInviteFor('');
+    addEventListener(OPEN_INVITE, open);
+    // Arriving from the home page's Invite button.
+    if (new URLSearchParams(location.search).has('invite')) {
+      history.replaceState(null, '', location.pathname);
+      open();
+    }
+    return () => removeEventListener(OPEN_INVITE, open);
+  }, []);
   const signIn = (d: Doctor) => {
     signedIn.current = true;
     setDoctor(d);

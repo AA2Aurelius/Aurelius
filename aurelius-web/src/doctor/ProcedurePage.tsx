@@ -7,7 +7,7 @@ import { PatientsPanel } from './PatientsPanel';
 
 interface ProcedureVideos {
   procedure: { id: string; name: string };
-  videos: Array<{ id: string; title: string; order: number; durationSeconds: number; playlist: string }>;
+  videos: Array<{ id: string; title: string; order: number; durationSeconds: number; playlist: string; poster: string | null }>;
 }
 
 // One procedure: preview its videos, see them in order, and see which of
@@ -48,7 +48,7 @@ export function ProcedurePage({ id }: { id: string }) {
             <h1 style={{ margin: 0 }}>{video ? video.title : data.procedure.name}</h1>
             <span className="pill blue">{data.procedure.name}</span>
           </div>
-          {video ? <VideoFrame key={video.id} src={`/api/doctor/${video.playlist}`} /> : <p className="muted">This procedure has no videos yet.</p>}
+          {video ? <VideoFrame key={video.id} src={`/api/doctor/${video.playlist}`} poster={video.poster && `/api/doctor/${video.poster}`} /> : <p className="muted">This procedure has no videos yet.</p>}
           <section className="stack">
             <h2>Videos in this set <span className="muted">({data.videos.length} · {formatDuration(total)})</span></h2>
             <p className="muted">

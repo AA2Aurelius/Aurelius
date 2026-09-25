@@ -9,8 +9,11 @@
   --text: #1b2440;
   --muted: #7b849b;
   --border: #e6e9f2;
-  --primary: #3a57e8;
-  --primary-grad: linear-gradient(90deg, #3a57e8 0%, #6f8cff 100%);
+  --site-blue: #3858d6;
+  --site-blue-grad: linear-gradient(120deg, #2c47c2 0%, #3858d6 55%, #4f74ee 100%);
+  --mint-cta: #3ff0c8;
+  --primary: #3858d6;
+  --primary-grad: linear-gradient(90deg, #3858d6 0%, #5f82f5 100%);
   --primary-soft: #ebefff;
   --accent-text: #ffffff;
   --link: #3a57e8;
@@ -41,7 +44,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--page) fixed;
+  background: var(--page);
   color: var(--text);
   font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -56,28 +59,43 @@ a { color: var(--link); }
 .site-header { background: var(--header-bg); color: var(--header-text); padding: 14px 16px; box-shadow: 0 4px 20px rgba(20, 30, 70, 0.12); }
 .site-header-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.2rem; color: var(--header-text); text-decoration: none; letter-spacing: 0.01em; }
-.brand-mark { width: 34px; height: 34px; flex: none; }
-.brand .brand-code { color: var(--brand-code, var(--primary)); }
 .header-pill { background: var(--pill-bg, var(--primary-soft)); color: var(--pill-text, var(--primary)); border-radius: 999px; padding: 6px 16px; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; }
 
-/* Themes. Public pages: a soft blue wash. Doctors: a deep blue header on
-   periwinkle. Patients: a teal header on mint, with teal buttons. */
-body.theme-public { --page: linear-gradient(180deg, #dfe6fb 0%, #eef2fc 60%, #f4f6fb 100%); }
-body.theme-doctor {
-  --page: linear-gradient(180deg, #cdd7ff 0%, #dde4ff 45%, #e9edff 100%);
-  --header-bg: linear-gradient(90deg, #17205a 0%, #2c3fb8 60%, #3a57e8 100%);
+/* The Aurelius Code wordmark, as in the videos: green letters with a gold
+   outline and a little depth, the first A larger. It sits on a white
+   header in every theme so it always reads. */
+.wordmark { font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif; font-weight: 900; font-size: 1.55rem; line-height: 1; text-transform: uppercase; letter-spacing: 0.04em; color: #5f7f35; -webkit-text-stroke: 1.2px #c9a227; paint-order: stroke fill; text-shadow: 0 1px 0 #3f5a1f, 0 2px 0 #3f5a1f, 0 3px 6px rgba(40, 60, 20, 0.35); white-space: nowrap; }
+.wordmark .wm-a { font-size: 1.35em; }
+.wordmark.small { font-size: 1.1rem; }
+@media (max-width: 520px) { .wordmark { font-size: 1.2rem; } }
+
+/* Themes. Every page has the site blue header and a soft blue page; the
+   wordmark sits on a white plate so its green and gold read. The badge
+   tells doctors (white) and patients (mint) apart. */
+body {
+  --header-bg: var(--site-blue-grad);
   --header-text: #ffffff;
-  --brand-code: #a9baff;
-  --pill-bg: rgba(255, 255, 255, 0.16);
-  --pill-text: #ffffff;
+}
+.site-header { border-bottom: 4px solid var(--header-rule, var(--mint-cta)); }
+.brand { background: #fff; border-radius: 14px; padding: 8px 14px; box-shadow: 0 4px 14px rgba(10, 20, 70, 0.25); }
+.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.top-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.top-nav a { color: #fff; text-decoration: none; font-weight: 800; font-size: 0.9rem; padding: 7px 14px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, 0.55); }
+.top-nav a:hover { background: rgba(255, 255, 255, 0.16); }
+.top-nav a:first-child { background: var(--mint-cta); color: #0b2a5a; border-color: var(--mint-cta); }
+body.theme-public {
+  --page: linear-gradient(160deg, #cfdcff 0%, #e4ecff 45%, #d9eaff 100%);
+}
+body.theme-doctor {
+  --page: linear-gradient(160deg, #b9caff 0%, #d4defe 40%, #c9dcff 100%);
+  --pill-bg: #ffffff;
+  --pill-text: var(--site-blue);
 }
 body.theme-patient {
-  --page: linear-gradient(180deg, #c9efe6 0%, #dcf5ef 45%, #ebf9f5 100%);
-  --header-bg: linear-gradient(90deg, #0b5f58 0%, #0f8f82 60%, #19b3a0 100%);
-  --header-text: #ffffff;
-  --brand-code: #aef0e4;
-  --pill-bg: rgba(255, 255, 255, 0.18);
-  --pill-text: #ffffff;
+  --page: linear-gradient(160deg, #bfd6ff 0%, #d7e6ff 40%, #c4f0ea 100%);
+  --header-rule: #22c1ab;
+  --pill-bg: var(--mint-cta);
+  --pill-text: #0b3a44;
   --primary: #0f8f82;
   --primary-grad: linear-gradient(90deg, #0f8f82 0%, #22c1ab 100%);
   --primary-soft: #dcf5f0;
@@ -189,6 +207,8 @@ a.button { text-decoration: none; }
 .thumb .thumb-play span { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.92); color: var(--primary); font-size: 1.2rem; padding-left: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
 .thumb.small { width: 92px; flex: none; border-radius: 10px; }
 .thumb.small .thumb-play span { width: 26px; height: 26px; font-size: 0.7rem; padding-left: 2px; }
+.thumb .thumb-badge { position: absolute; left: 6px; top: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.95); color: var(--text); font-size: 0.72rem; font-weight: 800; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+.evergreen-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 button.thumb { border: none; padding: 0; width: 100%; cursor: pointer; display: block; }
 button.thumb:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 
@@ -447,6 +467,38 @@ details[open] summary { margin-bottom: 12px; }
 
 /* Home: "How it works" */
 .hero { display: grid; gap: 10px; }
+
+/* Home page, after the Scope of Work wireframe: a blue hero with a rounded
+   corner and a shield, then procedure cards and how it works. */
+.home-main { width: 100%; padding-bottom: 40px; }
+.home-hero { position: relative; overflow: hidden; background: var(--site-blue-grad); color: #fff; border-bottom-left-radius: 90px; padding: 64px 24px 88px; }
+.home-hero::before, .home-hero::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.22); pointer-events: none; }
+.home-hero::before { width: 520px; height: 520px; right: -120px; top: -60px; }
+.home-hero::after { width: 320px; height: 320px; right: -20px; top: 40px; }
+.home-hero-inner { position: relative; max-width: 1040px; margin: 0 auto; display: grid; gap: 12px; }
+.home-hero h1 { max-width: 640px; font-size: 2.6rem; line-height: 1.12; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 900; color: #fff; margin: 0 0 6px; }
+.home-hero p { max-width: 600px; color: rgba(255, 255, 255, 0.9); }
+.home-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.home-hero-actions .button { text-decoration: none; }
+.button.mint { background: var(--mint-cta); color: #0b2a5a; box-shadow: 0 8px 22px rgba(63, 240, 200, 0.35); }
+.button.ghost { background: transparent; color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.7); box-shadow: none; }
+.home-shield { position: absolute; right: max(24px, calc(50% - 520px)); bottom: -24px; width: 150px; filter: drop-shadow(0 12px 30px rgba(10, 20, 80, 0.3)); }
+.home-body { max-width: 1040px; margin: 0 auto; padding: 44px 16px 0; display: grid; gap: 48px; }
+.home-section { display: grid; gap: 12px; }
+.home-kicker { width: 36px; height: 4px; border-radius: 4px; background: var(--mint-cta); }
+.home-h2 { font-size: 1.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: #1b2a6b; margin: 0; }
+.home-lead { max-width: 640px; }
+.proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; margin: 6px 0 10px; }
+.proc-card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); padding: 22px 20px; display: flex; flex-direction: column; gap: 8px; text-align: center; align-items: center; border: 2px solid transparent; }
+.proc-card h3 { margin: 0; font-size: 1.05rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; color: #1b2a6b; }
+.proc-card p { color: var(--muted); font-size: 0.9rem; margin: 0; flex: 1; }
+.proc-card.live { border-color: var(--site-blue); box-shadow: 0 12px 34px rgba(56, 88, 214, 0.22); }
+.proc-card.soon { opacity: 0.78; }
+.proc-status { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; background: #eef0f6; color: var(--muted); }
+.proc-status.live { background: #dcfbf2; color: #0b7a5c; }
+.home-more { display: flex; justify-content: center; }
+.proc-card .button { text-decoration: none; }
+.proc-soon-note { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
 .hero h1 { font-size: 2.1rem; }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
 .steps li { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 16px; }
@@ -473,12 +525,8 @@ details[open] summary { margin-bottom: 12px; }
 .cert-band {
   margin: 0 -44px 28px;
   padding: 18px 16px;
-  background: var(--cert-grad);
-  color: #fff;
-  font-weight: 900;
-  font-size: 1.25rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  background: linear-gradient(180deg, #fffdf5 0%, #f6f1dc 100%);
+  border-top: 3px solid var(--gold);
   border-bottom: 3px solid var(--gold);
 }
 .cert-title { font-size: 1.9rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); margin: 0 0 4px; }
@@ -525,6 +573,9 @@ details[open] summary { margin-bottom: 12px; }
 @media (max-width: 560px) {
   h1 { font-size: 1.45rem; }
   .hero h1 { font-size: 1.7rem; }
+  .home-hero { padding: 40px 16px 110px; border-bottom-left-radius: 48px; }
+  .home-hero h1 { font-size: 1.8rem; }
+  .home-shield { width: 96px; right: 16px; }
   .brand { font-size: 1.05rem; }
   .container { padding: 18px 12px 32px; }
   .card { padding: 20px 16px; }

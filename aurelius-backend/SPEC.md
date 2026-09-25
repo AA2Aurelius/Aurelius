@@ -215,8 +215,12 @@ Turnstile as third-party code, and `Referrer-Policy: strict-origin` so the
 link token in the URL never leaks) are in `aurelius-web/public/_headers`.
 
 Pages: `/watch/{token}` (the patient), `/doctor` (the doctor portal),
-`/verify/{code}` (public certificate check), and `/` (a short landing page
-with a code check and a link to the doctor sign-in).
+`/verify/{code}` (public certificate check), and `/` (the home page: a
+blue hero, the procedure list — Spinal Fusion and Hip Replacement live,
+the rest marked "Coming soon", a list kept in `pages/Home.tsx` — how it
+works, and a certificate check). The header on every page except the
+patient's has Invite patient / Patients / Videos buttons into the doctor
+portal (`/doctor?invite=1` opens the Invite pop-up after sign-in).
 
 The patient flow at `/watch/{token}`:
 1. **Confirm it's you** — Turnstile, then a 6-digit code emailed to the
@@ -314,6 +318,15 @@ off. A stopped run may leave the chunks of the video it was on in R2 with
 nothing pointing at them; they're harmless. Single videos:
 `--file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1`,
 or `--evergreen` in place of `--procedure`.
+
+**Still frames (posters).** Each upload also saves one frame of the video
+(30% of the way in, or `--poster-at <seconds>`) as `posters/<videoId>.jpg`
+in R2 and records it in `poster_r2_key` (migration `0005`). The pages show
+it on every video card and in the player before it starts. For videos
+uploaded before this existed, run the same manifest with `--posters`:
+`npm run package-video -- --manifest videos.csv --posters --remote` makes
+and uploads only the frames. Without a frame, the pages grab one in the
+browser instead.
 **Prescribing from the command line.** The doctor portal is the normal
 way; for scripted tests,
 `npm run test-prescribe -- --doctor you@clinic.com --email patient@example.com --name "Test Patient" --procedure "Hip Replacement"`

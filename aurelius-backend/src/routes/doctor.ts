@@ -68,7 +68,8 @@ doctor.get('/me', (c) => {
 doctor.get('/procedures', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT p.id, p.name, COUNT(v.id) AS video_count, COALESCE(SUM(v.duration_seconds), 0) AS total_seconds,
-            (SELECT id FROM videos fv WHERE fv.procedure_id = p.id ORDER BY fv.order_index LIMIT 1) AS first_video_id
+            (SELECT id FROM videos fv WHERE fv.procedure_id = p.id ORDER BY fv.order_index LIMIT 1) AS first_video_id,
+            (SELECT poster_r2_key IS NOT NULL FROM videos fv WHERE fv.procedure_id = p.id ORDER BY fv.order_index LIMIT 1) AS first_video_has_poster
      FROM procedures p LEFT JOIN videos v ON v.procedure_id = p.id
      GROUP BY p.id ORDER BY p.name`
   ).all();
@@ -80,11 +81,15 @@ doctor.get('/procedures/:id/videos', async (c) => {
   const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(c.req.param('id')).first<{ id: string; name: string }>();
   if (!procedure) return c.json({ error: 'Not found.' }, 404);
   const { results } = await c.env.DB.prepare(
-    `SELECT id, title, order_index, duration_seconds FROM videos WHERE procedure_id = ? ORDER BY order_index`
-  ).bind(procedure.id).all<{ id: string; title: string; order_index: number; duration_seconds: number }>();
+    `SELECT id, title, order_index, duration_seconds, poster_r2_key FROM videos WHERE procedure_id = ? ORDER BY order_index`
+  ).bind(procedure.id).all<{ id: string; title: string; order_index: number; duration_seconds: number; poster_r2_key: string | null }>();
   return c.json({
     procedure,
-    videos: results.map((v) => ({ id: v.id, title: v.title, order: v.order_index, durationSeconds: v.duration_seconds, playlist: `preview/${v.id}/playlist.m3u8` })),
+    videos: results.map((v) => ({
+      id: v.id, title: v.title, order: v.order_index, durationSeconds: v.duration_seconds,
+      playlist: `preview/${v.id}/playlist.m3u8`,
+      poster: v.poster_r2_key ? `preview/${v.id}/poster.jpg` : null,
+    })),
   });
 });
 

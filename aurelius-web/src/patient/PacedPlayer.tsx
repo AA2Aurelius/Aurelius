@@ -20,6 +20,7 @@ export interface PrescribedVideo {
   title: string;
   order_index: number;
   duration_seconds: number;
+  poster?: string | null;
 }
 
 interface CheckInfo { id: string; prompt: string; expiresAt: string }
@@ -310,7 +311,14 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
       </h1>
 
       <div className="player-shell" ref={shellRef}>
-        <video ref={videoRef} playsInline preload="auto" className="player-video" onClick={() => (playing ? pause() : play())} />
+        <video
+          ref={videoRef}
+          playsInline
+          preload="auto"
+          className="player-video"
+          poster={video.poster ? `${base}/${video.poster}` : undefined}
+          onClick={() => (playing ? pause() : play())}
+        />
 
         {phase === 'starting' && <div className="overlay"><div className="spinner" aria-label="Loading" /></div>}
         {phase === 'ready' && !playing && !check && !awayPaused && (

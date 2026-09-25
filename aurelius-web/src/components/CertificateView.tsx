@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ApiError, formatDateTime, formatDuration } from '../api';
+import { Wordmark } from './Brand';
 
 export interface CertificateResponse {
   verificationCode: string;
@@ -61,7 +62,7 @@ export function CertificateView({ load, backLabel, onBack }: {
       )}
 
       <article className="certificate">
-        <div className="cert-band">Aurelius Code</div>
+        <div className="cert-band"><Wordmark /></div>
         <h1 className="cert-title">Certificate of Completion</h1>
         <hr className="cert-rule" />
         <p className="cert-lead">This certifies that</p>

@@ -156,3 +156,55 @@ describe('procedure video previews for doctors', () => {
     expect((await doctorClient.fetch(`/api/doctor/procedures/not-a-procedure/videos`)).status).toBe(404);
   });
 });
+
+describe('poster frames', () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+  async function givePoster(table: 'videos' | 'evergreen_videos', id: string) {
+    const key = `posters/${id}.jpg`;
+    await env.VIDEOS.put(key, JPEG, { httpMetadata: { contentType: 'image/jpeg' } });
+    await env.DB.prepare(`UPDATE ${table} SET poster_r2_key = ? WHERE id = ?`).bind(key, id).run();
+  }
+
+  it('are listed only when present, and served to the patient for their own videos only', async () => {
+    const { token, patientEmail, videoIds } = await prescribe({ videos: 2 });
+    const patient = await verifiedPatient(token, patientEmail);
+    let portal = (await (await patient.fetch(`/api/watch/${token}`)).json()) as any;
+    expect(portal.videos.map((v: any) => v.poster)).toEqual([null, null]);
+    expect(portal.videos[0]).not.toHaveProperty('poster_r2_key');
+    expect((await patient.fetch(`/api/watch/${token}/video/${videoIds[0]}/poster.jpg`)).status).toBe(404);
+
+    await givePoster('videos', videoIds[0]);
+    portal = (await (await patient.fetch(`/api/watch/${token}`)).json()) as any;
+    expect(portal.videos[0].poster).toBe(`video/${videoIds[0]}/poster.jpg`);
+    const res = await patient.fetch(`/api/watch/${token}/${portal.videos[0].poster}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/jpeg');
+    expect(await bytes(res)).toEqual(JPEG);
+
+    expect((await new Client().fetch(`/api/watch/${token}/video/${videoIds[0]}/poster.jpg`)).status).toBe(401);
+    const other = await prescribe({ videos: 1 });
+    await givePoster('videos', other.videoIds[0]);
+    expect((await patient.fetch(`/api/watch/${token}/video/${other.videoIds[0]}/poster.jpg`)).status).toBe(404);
+  });
+
+  it('are served to doctors for previews and evergreen videos, and to patients for evergreen ones', async () => {
+    const { doctorClient, procedureId, videoIds, token, patientEmail } = await prescribe({ videos: 1 });
+    await givePoster('videos', videoIds[0]);
+    const eg = await seedEvergreen('Brain Science', order());
+    await givePoster('evergreen_videos', eg);
+
+    const list = (await (await doctorClient.fetch(`/api/doctor/procedures/${procedureId}/videos`)).json()) as any;
+    expect(list.videos[0].poster).toBe(`preview/${videoIds[0]}/poster.jpg`);
+    expect(await bytes(await doctorClient.fetch(`/api/doctor/${list.videos[0].poster}`))).toEqual(JPEG);
+    const procs = (await (await doctorClient.fetch('/api/doctor/procedures')).json()) as any[];
+    expect(procs.find((p) => p.id === procedureId).first_video_has_poster).toBe(1);
+
+    const egList = (await (await doctorClient.fetch('/api/doctor/evergreen')).json()) as any;
+    const mine = egList.videos.find((v: any) => v.id === eg);
+    expect(mine.poster).toBe(`evergreen/${eg}/poster.jpg`);
+    expect(await bytes(await doctorClient.fetch(`/api/doctor/${mine.poster}`))).toEqual(JPEG);
+    const patient = await verifiedPatient(token, patientEmail);
+    expect(await bytes(await patient.fetch(`/api/watch/${token}/evergreen/${eg}/poster.jpg`))).toEqual(JPEG);
+    expect((await new Client().fetch(`/api/doctor/${mine.poster}`)).status).toBe(401);
+  });
+});

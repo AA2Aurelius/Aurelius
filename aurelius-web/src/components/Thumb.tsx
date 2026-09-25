@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { attachHls } from '../video';
 
-// Video thumbnails. The uploaded videos have no poster images, so a frame is
-// captured in the browser: the playlist is loaded into a hidden, muted video
+// Video thumbnails. The still frame made at upload (`poster`) is used when
+// there is one. Otherwise a frame is captured in the browser: the playlist is loaded into a hidden, muted video
 // a couple of seconds in, and that frame is drawn to a canvas. One capture
 // runs at a time, and results are kept for the page's lifetime. Where a
 // frame can't be captured (e.g. iPhones don't load video without a tap), the
@@ -75,12 +75,17 @@ export function useThumbnail(src: string | null): string | null {
   return url;
 }
 
-export function Thumb({ src, small, label, onClick }: { src: string | null; small?: boolean; label?: string; onClick?: () => void }) {
-  const url = useThumbnail(src);
+export function Thumb({ src, poster, small, label, badge, onClick }: { src: string | null; poster?: string | null; small?: boolean; label?: string; badge?: string; onClick?: () => void }) {
+  const [posterFailed, setPosterFailed] = useState(false);
+  const usePoster = !!poster && !posterFailed;
+  const captured = useThumbnail(usePoster ? null : src);
+  const url = usePoster ? null : captured;
   const inner = (
     <>
+      {usePoster && <img src={poster!} alt="" onError={() => setPosterFailed(true)} />}
       {url && <img src={url} alt="" />}
       <span className="thumb-play"><span aria-hidden="true">▶</span></span>
+      {badge && <span className="thumb-badge" aria-hidden="true">{badge}</span>}
     </>
   );
   const cls = `thumb ${small ? 'small' : ''}`;

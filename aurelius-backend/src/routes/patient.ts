@@ -9,6 +9,7 @@ import { turnstilePasses } from '../turnstile';
 import { AppEnv, getPrescribedVideo, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
 import { registerEvergreenRoutes } from './evergreen';
 import { registerPlaybackRoutes } from './playback';
+import { serveR2Object } from '../stream';
 
 // Patient routes, mounted at /api/watch. The link token identifies the
 // prescription; a verified one-time-code session proves it's the patient.
@@ -40,7 +41,7 @@ patient.get('/:token', async (c) => {
 
   const proc = await c.env.DB.prepare(`SELECT name FROM procedures WHERE id = ?`).bind(p.procedure_id).first<{ name: string }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
   ).bind(p.id).all<any>();
@@ -50,7 +51,8 @@ patient.get('/:token', async (c) => {
   const videos = results.map((v) => {
     const unlocked = allBeforeDone;
     allBeforeDone = allBeforeDone && !!v.completed_at;
-    return { ...v, unlocked, complete: !!v.completed_at };
+    const { poster_r2_key, ...rest } = v;
+    return { ...rest, unlocked, complete: !!v.completed_at, poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null };
   });
 
   return c.json({ verified: true, patientName: p.patient_name, procedureName: proc?.name, hoursLeft, certified: c.get('certified'), videos });
@@ -177,6 +179,15 @@ patient.post('/:token/video/:videoId/seek-attempt', requireActiveLink, requirePa
     }
   );
   return c.json({ ok: true });
+});
+
+// A still frame of one of the patient's own videos, for its card.
+patient.get('/:token/video/:videoId/poster.jpg', requirePatient, async (c) => {
+  const video = await getPrescribedVideo(c.env, c.get('prescription').id, c.req.param('videoId'));
+  if (!video) return c.json({ error: 'Not found.' }, 404);
+  const row = await c.env.DB.prepare(`SELECT poster_r2_key FROM videos WHERE id = ?`).bind(video.video_id).first<{ poster_r2_key: string | null }>();
+  const res = row?.poster_r2_key && (await serveR2Object(c.env.VIDEOS, row.poster_r2_key, c.req.raw));
+  return res || c.json({ error: 'Not found.' }, 404);
 });
 
 // Playback start, playlist, chunks, heartbeats, attention checks and

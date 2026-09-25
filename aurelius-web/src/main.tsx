@@ -1,11 +1,34 @@
-import { StrictMode } from 'react';
+import { StrictMode, type MouseEvent } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrandMark } from './components/Brand';
-import { DoctorApp } from './doctor/DoctorApp';
+import { Wordmark } from './components/Brand';
+import { DoctorApp, OPEN_INVITE } from './doctor/DoctorApp';
+import { navigate } from './doctor/nav';
 import { Home } from './pages/Home';
 import { VerifyPage } from './pages/VerifyPage';
 import { WatchApp } from './patient/WatchApp';
 import './styles.css';
+
+// Buttons to the doctor's pages. Inside the portal they move without a page
+// load; elsewhere they are plain links (signing in first if needed).
+function TopNav({ doctor }: { doctor: boolean }) {
+  const go = (to: string) => (e: MouseEvent) => {
+    if (!doctor) return;
+    e.preventDefault();
+    navigate(to);
+  };
+  const invite = (e: MouseEvent) => {
+    if (!doctor) return;
+    e.preventDefault();
+    dispatchEvent(new Event(OPEN_INVITE));
+  };
+  return (
+    <nav className="top-nav no-print" aria-label="Site">
+      <a href="/doctor?invite=1" onClick={invite}>Invite patient</a>
+      <a href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
+      <a href="/doctor" onClick={go('/doctor')}>Videos</a>
+    </nav>
+  );
+}
 
 // Four kinds of page; the path decides which.
 function App() {
@@ -32,11 +55,14 @@ function App() {
     <>
       <header className="site-header no-print">
         <div className="site-header-inner">
-          <a href="/" className="brand"><BrandMark /> <span>Aurelius <span className="brand-code">Code</span></span></a>
-          {badge && <span className="header-pill">{badge}</span>}
+          <a href="/" className="brand"><Wordmark /></a>
+          <div className="header-right">
+            {!watch && <TopNav doctor={doctor} />}
+            {badge && <span className="header-pill">{badge}</span>}
+          </div>
         </div>
       </header>
-      <main className={`container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
+      <main className={!doctor && !watch && !check ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
       <footer className="site-footer no-print">
         © {new Date().getFullYear()} Aurelius Code · Because everyone can use a little help from time to time
       </footer>

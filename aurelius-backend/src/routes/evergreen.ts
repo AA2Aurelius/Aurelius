@@ -35,8 +35,8 @@ const noGuard: MiddlewareHandler<AppEnv> = (_c, next) => next();
 export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHandler<AppEnv> = noGuard) {
   app.get(base, guard, async (c) => {
     const { results } = await c.env.DB.prepare(
-      `SELECT id, title, order_index, duration_seconds FROM evergreen_videos ORDER BY order_index`
-    ).all<EvergreenVideo>();
+      `SELECT id, title, order_index, duration_seconds, poster_r2_key FROM evergreen_videos ORDER BY order_index`
+    ).all<EvergreenVideo & { poster_r2_key: string | null }>();
     return c.json({
       videos: results.map((v) => ({
         id: v.id,
@@ -44,6 +44,7 @@ export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: 
         order: v.order_index,
         durationSeconds: v.duration_seconds,
         playlist: `evergreen/${v.id}/playlist.m3u8`,
+        poster: v.poster_r2_key ? `evergreen/${v.id}/poster.jpg` : null,
       })),
     });
   });
@@ -72,6 +73,12 @@ function registerVodRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHan
   app.get(`${base}/:videoId/init.mp4`, guard, async (c) => {
     const key = await initKey(c.env, t, c.req.param('videoId') ?? '');
     const res = key && (await serveR2Object(c.env.VIDEOS, key, c.req.raw));
+    return res || c.json({ error: 'Not found.' }, 404);
+  });
+
+  app.get(`${base}/:videoId/poster.jpg`, guard, async (c) => {
+    const row = await c.env.DB.prepare(`SELECT poster_r2_key FROM ${t.videos} WHERE id = ?`).bind(c.req.param('videoId') ?? '').first<{ poster_r2_key: string | null }>();
+    const res = row?.poster_r2_key && (await serveR2Object(c.env.VIDEOS, row.poster_r2_key, c.req.raw));
     return res || c.json({ error: 'Not found.' }, 404);
   });
 

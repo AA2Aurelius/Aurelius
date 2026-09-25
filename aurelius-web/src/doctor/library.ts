@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-export interface Procedure { id: string; name: string; video_count: number; total_seconds: number; first_video_id: string | null }
+export interface Procedure { id: string; name: string; video_count: number; total_seconds: number; first_video_id: string | null; first_video_has_poster?: number }
 
 export interface PatientRow {
   id: string;
@@ -20,6 +20,10 @@ export interface PatientRow {
 // A procedure's thumbnail comes from its first video's preview playlist.
 export function procedureThumb(p: Pick<Procedure, 'first_video_id'>): string | null {
   return p.first_video_id ? `/api/doctor/preview/${encodeURIComponent(p.first_video_id)}/playlist.m3u8` : null;
+}
+
+export function procedurePoster(p: Pick<Procedure, 'first_video_id' | 'first_video_has_poster'>): string | null {
+  return p.first_video_id && p.first_video_has_poster ? `/api/doctor/preview/${encodeURIComponent(p.first_video_id)}/poster.jpg` : null;
 }
 
 export function minutes(totalSeconds: number): string {
