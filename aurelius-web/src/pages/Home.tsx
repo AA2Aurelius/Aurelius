@@ -13,7 +13,7 @@ const PROCEDURES: Array<{ name: string; live?: boolean; blurb: string; items?: s
   },
   {
     name: 'Hip Replacement', live: true, blurb: '6 videos, watched in order',
-    items: ['Replacement surgery', 'Risks', 'How to prepare for surgery', 'During the procedure', 'After the procedure', 'Home recovery'],
+    items: ['Hip replacement surgery', 'Risks', 'How to prepare for surgery', 'During the procedure', 'After the procedure', 'Home recovery'],
   },
   { name: 'Appendectomy', blurb: 'Removal of the appendix' },
   { name: 'Cesarean Delivery', blurb: 'Delivering a baby by surgery' },
