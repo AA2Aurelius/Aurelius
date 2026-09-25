@@ -54,12 +54,24 @@ export function Portal({ data, evergreen, evergreenBase, player, playingId, onPl
           <button className="button" onClick={onCertificate}>View certificate</button>
         </div>
       ) : (
-        <div className={`banner ${data.hoursLeft < 12 ? 'warning' : ''}`}>
-          <p>
-            <strong>{formatHoursLeft(data.hoursLeft)}</strong> to finish the videos with this link.
-            {data.hoursLeft < 12 && !expired && ' Please finish soon, or ask your doctor for a new link.'}
-          </p>
-        </div>
+        data.hoursLeft < 12 ? (
+          <div className={`alert-12h ${expired ? 'expired' : ''}`} role="status">
+            {expired ? (
+              <p style={{ margin: 0 }}><strong>This link has expired.</strong> Please ask your doctor's office for a new link.</p>
+            ) : (
+              <p style={{ margin: 0 }}>
+                <strong>⏰ Only {formatHoursLeft(data.hoursLeft).replace(' left', '')} left</strong> to finish your videos
+                ({done} of {data.videos.length} done). Please finish soon, or ask your doctor for a new link.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="banner">
+            <p>
+              <strong>{formatHoursLeft(data.hoursLeft)}</strong> to finish the videos with this link.
+            </p>
+          </div>
+        )
       )}
 
       <div className="watch-layout">

@@ -20,11 +20,14 @@ function App() {
     badge = 'Doctor portal';
   } else if (watch) {
     page = <WatchApp token={decodeURIComponent(watch[1])} />;
-    badge = '🔒 Your videos';
+    badge = 'Patient portal';
   } else if (check) {
     page = <VerifyPage code={decodeURIComponent(check[1])} />;
     badge = 'Certificate check';
   } else page = <Home />;
+  // Doctors and patients get visibly different colors, so it's always clear
+  // which side you're looking at.
+  document.body.className = doctor ? 'theme-doctor' : watch ? 'theme-patient' : 'theme-public';
   return (
     <>
       <header className="site-header no-print">

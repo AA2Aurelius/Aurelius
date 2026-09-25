@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { ApiError, api } from '../api';
 import { CertificateView, type CertificateResponse } from '../components/CertificateView';
 import { InviteIcon, LogoutIcon, PlayIcon, UsersIcon } from '../components/icons';
+import { ExpiringAlert } from './ExpiringAlert';
 import { InviteModal } from './InviteModal';
 import { InviteContext } from './library';
 import { Login } from './Login';
@@ -103,7 +104,10 @@ export function DoctorApp() {
             <p>A patient can't open their link? Open them under Patients and choose Send a new link.</p>
           </div>
         </nav>
-        <div className="doc-main">{page}</div>
+        <div className="doc-main stack-lg">
+          <ExpiringAlert refresh={refresh} />
+          {page}
+        </div>
       </div>
       {inviteFor !== undefined && (
         <InviteModal initialProcedureId={inviteFor || undefined} onClose={closeInvite} onSent={sentInvite} />

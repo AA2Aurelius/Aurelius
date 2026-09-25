@@ -265,6 +265,16 @@ sent this month.
 A 401 from the API (30 minutes idle, 12 hours at most) returns the doctor
 to the sign-in form, which keeps the page they were on.
 
+**12-hour reminder.** When a link has less than 12 hours left and the
+videos aren't all done, the reminder sweep emails the patient and the
+doctor (once per link), the doctor portal shows a pulsing banner on every
+page listing those patients with their progress, and the patient's page
+shows a pulsing "Only N hours left" warning.
+
+**Looks.** Doctors and patients get visibly different colors (a deep blue
+header on periwinkle for doctors, teal on mint for patients), set as a
+theme class on `<body>`; the certificate keeps the same design in both.
+
 The public Turnstile site key is in `aurelius-web/.env.production`; builds
 in any other mode leave it out, and the widget is skipped (as is the
 server-side check in development).
