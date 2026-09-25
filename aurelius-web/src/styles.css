@@ -90,6 +90,11 @@ input, select, textarea { color: #1b2440; }
 .top-nav .site-link:hover { color: var(--site-blue); }
 .top-nav .nav-btn { color: var(--site-blue); border: 1.5px solid var(--site-blue); padding: 6px 16px; }
 .top-nav .nav-btn:hover { background: var(--primary-soft); }
+.top-nav .nav-portal { border-radius: 10px; border: 1.5px solid var(--site-blue); color: var(--site-blue); padding: 8px 18px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.74rem; }
+.top-nav .nav-portal:hover { background: var(--primary-soft); }
+.over-hero .top-nav .nav-portal { color: #fff; border-color: #fff; }
+.over-hero .top-nav .nav-portal:hover { background: rgba(255, 255, 255, 0.14); }
+a.header-pill { text-decoration: none; }
 .top-nav .nav-cta { background: var(--mint-cta); color: #0b2a5a; padding: 7px 16px; margin-left: 6px; }
 body.theme-doctor {
   --pill-bg: var(--primary-grad);
@@ -726,3 +731,8 @@ details[open] summary { margin-bottom: 12px; }
 .trash { background: none; border: none; padding: 6px; color: #aab1c6; cursor: pointer; border-radius: 8px; }
 .trash:hover { color: var(--danger); background: #fdecec; }
 .trash svg { width: 20px; height: 20px; display: block; }
+/* On phones the header keeps only the portal buttons. */
+@media (max-width: 720px) {
+  .top-nav .site-link { display: none; }
+  .top-nav .nav-cta { margin-left: 0; }
+}

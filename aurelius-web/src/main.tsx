@@ -30,6 +30,7 @@ function TopNav({ doctor }: { doctor: boolean }) {
       <a className="nav-cta" href="/doctor?invite=1" onClick={invite}>Invite patient</a>
       <a className="nav-btn" href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
       <a className="nav-btn" href="/doctor" onClick={go('/doctor')}>Videos</a>
+      {!doctor && <a className="nav-portal" href="/doctor">Doctor portal</a>}
     </nav>
   );
 }
@@ -63,7 +64,11 @@ function App() {
           <a href="/" className="brand"><Wordmark /></a>
           <div className="header-right">
             {!watch && <TopNav doctor={doctor} />}
-            {badge && <span className="header-pill">{badge}</span>}
+            {doctor ? (
+              <a className="header-pill" href="/doctor" onClick={(e) => { e.preventDefault(); navigate('/doctor'); }}>{badge}</a>
+            ) : (
+              badge && <span className="header-pill">{badge}</span>
+            )}
           </div>
         </div>
       </header>
