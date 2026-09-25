@@ -79,11 +79,12 @@ registerEvergreenRoutes(doctor, '/evergreen');
 
 // -------------------------------------------------------------- patients
 
-// The signed-in doctor's patients with live progress. Link tokens are never
-// returned here -- only their hashes are stored.
+// The signed-in doctor's patients with live progress, cancelled links
+// included; a link replaced by a resend is shown as its replacement. Link
+// tokens are never returned here -- only their hashes are stored.
 doctor.get('/patients', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.created_at, pr.expires_at,
+    `SELECT pr.id, pr.patient_name, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
             proc.name AS procedure_name,
             (SELECT COUNT(*) FROM video_progress vp
                WHERE vp.prescription_id = pr.id AND vp.completed_at IS NOT NULL) AS videos_done,
@@ -91,7 +92,8 @@ doctor.get('/patients', async (c) => {
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.doctor_id = ? AND pr.revoked_at IS NULL
+     WHERE pr.doctor_id = ?
+       AND NOT EXISTS (SELECT 1 FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id)
      ORDER BY pr.created_at DESC`
   ).bind(c.get('doctor').doctorId).all();
   return c.json(results.map((r: any) => ({ ...r, hours_left: Math.max(0, hoursUntil(r.expires_at)) })));

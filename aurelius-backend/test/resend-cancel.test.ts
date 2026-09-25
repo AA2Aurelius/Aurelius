@@ -118,6 +118,10 @@ describe('cancel', () => {
     expect(JSON.parse(cancelled[0].meta)).toMatchObject({ reason: 'Wrong patient', by_doctor: s.doctor.id });
     const row = await env.DB.prepare(`SELECT revoked_at, revoked_reason FROM prescriptions WHERE id = ?`).bind(s.prescriptionId).first<any>();
     expect(row.revoked_reason).toBe('cancelled');
+
+    // Still on the doctor's list, marked cancelled.
+    const list = (await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[];
+    expect(list.find((r) => r.id === s.prescriptionId)).toMatchObject({ revoked_reason: 'cancelled' });
     expect(row.revoked_at).toMatch(/Z$/);
   });
 

@@ -9,6 +9,16 @@ routes = [{ pattern = "aureliuscode.com", custom_domain = true }]
 workers_dev = false
 preview_urls = false
 
+# --- Frontend ---
+# The patient pages (aurelius-web, built by `npm run deploy`) are served as
+# static files. Requests under /api reach the Worker; every other path gets
+# the app (index.html for paths like /watch/{token}). Headers for these files
+# come from aurelius-web/public/_headers.
+[assets]
+directory = "../aurelius-web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
 # --- D1 database ---
 # Created in the Cloudflare dashboard (or: wrangler d1 create aurelius-db).
 # The id below is that database's; it identifies it but grants no access.

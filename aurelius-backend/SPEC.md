@@ -46,8 +46,11 @@ No billing, no subscriptions.
 - `src/` — Hono Worker. The API lives under `/api` on the same origin as
   the frontend (`APP_ORIGIN`), so frontend pages like `/watch/{token}`
   don't collide with it.
-- `wrangler.toml` — D1 + R2 bindings, cron trigger every 15 min for the
+- `wrangler.toml` — D1 + R2 bindings, the `aureliuscode.com` route, the
+  frontend's static files, and a cron trigger every 15 min for the
   reminder sweep.
+- `../aurelius-web/` — the patient pages (React + Vite, built into
+  `aurelius-web/dist` and served by this same Worker; see Frontend below).
 - `test/` — vitest suite running in the Workers runtime against local D1
   and R2 (`npm test`).
 
@@ -55,7 +58,9 @@ No billing, no subscriptions.
 Doctor (session cookie required, except login):
 - `POST /api/doctor/login`, `POST /api/doctor/logout`, `GET /api/doctor/me`
 - `GET /api/doctor/procedures`
-- `GET /api/doctor/patients` — the signed-in doctor's patients only
+- `GET /api/doctor/patients` — the signed-in doctor's patients only,
+  cancelled links included (a link replaced by a resend shows as its
+  replacement)
 - `GET /api/doctor/prescriptions/:id` — per-video progress
 - `GET /api/doctor/prescriptions/:id/certificate` — full certificate + integrity check
 - `POST /api/doctor/prescribe` — emails the patient their link; the link is
@@ -105,7 +110,10 @@ Public:
   maximum); server-side sessions in `__Host-` cookies (HttpOnly, Secure,
   SameSite=Strict), 30 min idle / 12 h absolute; lockout after 5 failed
   logins per email in 15 min; state-changing requests from another
-  Origin are rejected. Accounts are created with `npm run create-doctor`.
+  Origin are rejected. Accounts are created with `npm run create-doctor`;
+  `npm run create-doctor -- --reset --email … --remote` replaces a
+  forgotten or exposed password in place, ends that doctor's sessions and
+  clears the sign-in lockout (there is no self-service reset).
 - **Patient identity:** a 6-digit code emailed to the address the doctor
   entered (10 min expiry, 5 guesses, 60 s resend cooldown, 5 per hour).
   The certificate records this as "verified by one-time code sent to
@@ -170,21 +178,80 @@ Public:
    a batch from a CSV (see Deploy steps). An upload flow
    would need to run the same packaging off-Worker, since Workers can't run
    ffmpeg.
-5. **Certificate rendering** — the certificate endpoints return JSON; needs
-   a printable/PDF view (the prototype's certificate design is the visual
-   reference — ask for the published prototype link if needed).
+5. **Certificate rendering** — the patient's certificate page is laid out
+   for printing ("Print or save as PDF" uses the browser's print dialog).
+   A server-generated PDF is still to do, if one is wanted. The original
+   prototype's design couldn't be found; the current design is a neutral
+   placeholder.
 6. ~~Brain Science / How It Works videos.~~ Done (evergreen tables and
    routes, above).
 7. **Signing-key rotation.** Verification uses the current key only;
    rotating it would make older certificates fail. Before rotating, keep
    old public keys available by `key_id`.
-8. **Frontend** for this API (the Next.js app at the repo root is still
-   the standalone demo). One browser holds one patient session at a
-   time; verifying a second prescription replaces the first. The player
-   needs hls.js (Safari/iOS can play the playlist natively), a heartbeat
-   every 5 s using `document.visibilityState`, a pause while an attention
-   check is open, and the Turnstile widget on the code screen. The
-   evergreen videos play in the same player with no heartbeats.
+8. **Frontend.** The patient pages and the doctor portal are built
+   (`aurelius-web`, below); the patient side has been tested on an iPhone.
+   Still to do: previewing a procedure's own videos in the portal (only
+   the evergreen ones can be previewed; there's no doctor endpoint for
+   procedure video playback yet), and removing the Next.js app at the repo
+   root, which is the old standalone demo. One browser holds one patient
+   session at a time; verifying a second prescription replaces the first.
+
+## Frontend (`aurelius-web`)
+React + TypeScript, built with Vite into `aurelius-web/dist`, which the
+Worker serves as static files (`[assets]` in `wrangler.toml`): requests
+under `/api` reach the API, every other path gets the app. Security headers
+for the pages (a strict Content-Security-Policy that allows only
+Turnstile as third-party code, and `Referrer-Policy: strict-origin` so the
+link token in the URL never leaks) are in `aurelius-web/public/_headers`.
+
+Pages: `/watch/{token}` (the patient), `/doctor` (the doctor portal),
+`/verify/{code}` (public certificate check), and `/` (a short landing page
+with a code check and a link to the doctor sign-in).
+
+The patient flow at `/watch/{token}`:
+1. **Confirm it's you** — Turnstile, then a 6-digit code emailed to the
+   address the doctor entered.
+2. **Portal** — the evergreen videos (optional), then the procedure's
+   videos in order, each locked until the previous one is complete, with
+   a check mark once the server confirms completion; time left on the link,
+   with a warning under 12 hours.
+3. **Player** — Safari plays HLS natively; other browsers load hls.js
+   (light build) on demand. Controls are Play/Pause, Back 10 s and full
+   screen; there's no seek bar. A heartbeat every 5 s reports position,
+   playing and `document.visibilityState`. The video pauses when the page
+   is hidden and waits for "Continue watching". Attention checks show as a
+   dialog with a 60 s countdown; playback stays paused until answered. Any
+   forward jump (keyboard, native controls) is undone and reported as a
+   seek attempt. A video is marked complete only when a heartbeat response
+   says so.
+4. **Certificate** — once every video is complete: the details, per-video
+   completion times, identity and pacing statements, and the verification
+   code with its `/verify` link.
+
+The doctor portal at `/doctor` (sign in with the account made by
+`create-doctor`):
+- **Patients** — every prescription the doctor has sent, newest first,
+  with a status (not started, in progress, fewer than 12 hours left,
+  expired, cancelled, complete) and videos completed; searchable by
+  patient or procedure.
+- **New prescription** — patient name, email and procedure. The patient is
+  emailed their link; the link is also shown once, behind "Show the
+  patient's link", with a warning, and shown open if the email failed.
+- **Patient page** — per-video started and completed times, pauses and
+  skip attempts; **Send a new link** (optionally to a corrected email; the
+  old link stops working and progress starts again) and **Cancel link**
+  (with an optional reason for the record). Links between a resent link
+  and the one it replaced. Once every video is complete, the certificate,
+  with a warning if it fails its integrity check.
+- **Videos** — the procedures and their video counts, and previews of the
+  "Before you begin" videos.
+
+A 401 from the API (30 minutes idle, 12 hours at most) returns the doctor
+to the sign-in form, which keeps the page they were on.
+
+The public Turnstile site key is in `aurelius-web/.env.production`; builds
+in any other mode leave it out, and the widget is skipped (as is the
+server-side check in development).
 
 ## Deploy steps
 ```
@@ -198,7 +265,7 @@ openssl rand -base64 32 | npx wrangler secret put OTP_SECRET
 npm run -s gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK   # back this key up offline
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY                          # from the Turnstile widget you create
-npm run deploy
+npm run deploy                                      # builds aurelius-web, then deploys the Worker
 npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com --remote
 npm run package-video -- --manifest videos.csv --remote        # all videos; see below
 ```
@@ -218,14 +285,26 @@ off. A stopped run may leave the chunks of the video it was on in R2 with
 nothing pointing at them; they're harmless. Single videos:
 `--file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1`,
 or `--evergreen` in place of `--procedure`.
-Local development: copy `.dev.vars.example` to `.dev.vars`, then
-`npm run db:migrate` and `npm run dev`. With no `RESEND_API_KEY`, emails
-(including one-time codes) are printed to the console, and with no
-`TURNSTILE_SECRET_KEY` the bot check is skipped (development only).
+**Prescribing from the command line.** The doctor portal is the normal
+way; for scripted tests,
+`npm run test-prescribe -- --doctor you@clinic.com --email patient@example.com --name "Test Patient" --procedure "Hip Replacement"`
+signs in as that doctor (it asks for the password), prescribes through the
+live API and prints the patient link; the patient also gets the normal
+email. Add `--api http://localhost:8787` to use a local Worker.
+
+**Local development.** Copy `.dev.vars.example` to `.dev.vars`, then
+`npm run db:migrate`, `npm run build:web` and `npm run dev` (the app and
+API on http://localhost:8787). With no `RESEND_API_KEY`, emails (including
+one-time codes) are printed to the console, and with no
+`TURNSTILE_SECRET_KEY` the bot check is skipped (development only). For
+the Turnstile widget to be skipped too, build the pages in development
+mode: `npm --prefix ../aurelius-web run build:dev`.
+For live reloading of the pages, run `npm run dev` here and `npm run dev`
+in `aurelius-web` (Vite on :5173, forwarding `/api` to :8787).
 `package-video` needs ffmpeg on your PATH (or `--ffmpeg /path`).
 
 ## Reference
-The reviewed/approved UI prototype (click-through, no backend) shows the
-approved doctor portal layout, patient checklist/player, certificate
-design, and 12h reminder banners. Match that UI when building the real
-frontend against this API.
+An approved UI prototype (click-through, no backend) existed, but its link
+couldn't be found. The frontend uses a neutral design instead; its colors
+and spacing are defined at the top of `aurelius-web/src/styles.css` so a
+restyle is contained.
