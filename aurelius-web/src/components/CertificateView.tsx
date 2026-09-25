@@ -61,8 +61,9 @@ export function CertificateView({ load, backLabel, onBack }: {
       )}
 
       <article className="certificate">
-        <p className="cert-brand">Aurelius</p>
-        <h1>Certificate of Completion</h1>
+        <div className="cert-band">Aurelius Code</div>
+        <h1 className="cert-title">Certificate of Completion</h1>
+        <hr className="cert-rule" />
         <p className="cert-lead">This certifies that</p>
         <p className="cert-name">{c.patient.name}</p>
         <p className="cert-lead">watched every video prescribed for</p>
@@ -100,10 +101,18 @@ export function CertificateView({ load, backLabel, onBack }: {
           <dd>Signed (Ed25519, key {c.signature.key_id}); audit log of {c.audit_log.event_count} events.</dd>
         </dl>
 
-        <div className="cert-code">
-          <p className="muted">Verification code</p>
-          <p className="code">{data.verificationCode}</p>
-          <p className="muted">Check this certificate at {verifyUrl}</p>
+        <div className="cert-footer">
+          <div className="cert-code">
+            <p className="muted">Verification code</p>
+            <p className="code">{data.verificationCode}</p>
+            <p className="muted">Check this certificate at {verifyUrl}</p>
+          </div>
+          <div className="cert-seal" aria-hidden="true">
+            <div className="cert-seal-inner">
+              <span className="cert-seal-check">✓</span>
+              <span className="cert-seal-text">Verified</span>
+            </div>
+          </div>
         </div>
       </article>
     </div>

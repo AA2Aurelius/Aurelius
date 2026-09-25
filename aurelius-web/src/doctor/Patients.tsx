@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ApiError, formatDateTime } from '../api';
+import { InviteIcon } from '../components/icons';
+import { useInvite } from './library';
 import { Link, doctorApi } from './nav';
 import { linkStatus } from './status';
 
@@ -18,6 +20,7 @@ interface PatientRow {
 }
 
 export function Patients() {
+  const invite = useInvite();
   const [rows, setRows] = useState<PatientRow[] | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
@@ -38,13 +41,13 @@ export function Patients() {
     <div className="stack">
       <div className="row">
         <h1>Patients</h1>
-        <Link to="/doctor/new" className="button">New prescription</Link>
+        <button className="button" onClick={() => invite()}><InviteIcon /> Invite patient</button>
       </div>
 
       {rows.length === 0 ? (
         <div className="card stack">
           <p>No patients yet.</p>
-          <p className="muted">Prescribe a procedure's videos and the patient gets an email with their link.</p>
+          <p className="muted">Invite a patient to a procedure's videos and they get an email with their link.</p>
         </div>
       ) : (
         <>

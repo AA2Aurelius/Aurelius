@@ -61,6 +61,8 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
   const [awayPaused, setAwayPaused] = useState(false);
   const [connectionTrouble, setConnectionTrouble] = useState(false);
   const [skipNotice, setSkipNotice] = useState(false);
+  const [skipsBlocked, setSkipsBlocked] = useState(0);
+  const [blockedFlash, setBlockedFlash] = useState(false);
 
   const base = `/api/watch/${encodeURIComponent(token)}`;
   const stateRef = useRef<PlaybackState | null>(null);
@@ -197,6 +199,8 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
       const attempted = v.currentTime;
       v.currentTime = maxReached.current;
       setSkipNotice(true);
+      setSkipsBlocked((n) => n + 1);
+      setBlockedFlash(true);
       const now = Date.now();
       if (now - lastSkipReport.current > 3000) {
         lastSkipReport.current = now;
@@ -344,11 +348,21 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
         )}
       </div>
 
-      <div className="progress-row">
-        <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label="Progress">
-          <div className="progress-fill" style={{ width: `${pct}%` }} />
-        </div>
+      <div className="progress-meta">
         <span className="time">{formatDuration(position)} / {formatDuration(totalS)}</span>
+        <span className="lock-label">🔒 Locked — no skipping</span>
+      </div>
+      <div
+        className={`progress ${blockedFlash ? 'blocked' : ''}`}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        aria-label="Progress"
+        onAnimationEnd={() => setBlockedFlash(false)}
+      >
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        <span className="progress-handle" style={{ left: `${pct}%` }} aria-hidden="true" />
       </div>
       <div className="controls">
         <button className="button" onClick={() => (playing ? pause() : play())} disabled={phase !== 'ready' || !!check}>
@@ -358,7 +372,12 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
         {canFullscreen && <button className="button secondary" onClick={fullscreen}>Full screen</button>}
       </div>
 
-      {skipNotice && <p className="note">Skipping ahead isn't available. The video continues from where you were.</p>}
+      {skipNotice && (
+        <div className="stack">
+          <p className="note">Skipping ahead isn't available. The video continues from where you were.</p>
+          <span className="skips-blocked">Skips blocked: {skipsBlocked}</span>
+        </div>
+      )}
       {connectionTrouble && <p className="note">Having trouble reaching Aurelius. Retrying…</p>}
       {phase === 'error' && <p className="error">{error}</p>}
       <p className="hint">

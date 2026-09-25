@@ -1,5 +1,6 @@
 import { formatDuration, formatHoursLeft } from '../api';
 import type { EvergreenVideo } from '../components/PlainPlayer';
+import { Thumb } from '../components/Thumb';
 
 export interface PortalVideo {
   id: string;
@@ -19,8 +20,9 @@ export interface PortalData {
   videos: PortalVideo[];
 }
 
-export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate }: {
+export function Portal({ data, evergreen, evergreenBase, onPlay, onPlayEvergreen, onCertificate }: {
   data: PortalData;
+  evergreenBase: string;
   evergreen: EvergreenVideo[];
   onPlay: (v: PortalVideo) => void;
   onPlayEvergreen: (v: EvergreenVideo) => void;
@@ -29,6 +31,7 @@ export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate
   const done = data.videos.filter((v) => v.complete).length;
   const expired = data.hoursLeft <= 0;
   const firstName = data.patientName.split(/\s+/)[0];
+  const next = !data.certified && !expired ? data.videos.find((v) => v.unlocked && !v.complete) : undefined;
 
   return (
     <div className="stack-lg">
@@ -55,12 +58,26 @@ export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate
         </div>
       )}
 
+      {next && (
+        <section className="up-next" aria-label="Up next">
+          <Thumb src={null} label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
+          <div className="up-next-meta">
+            <div>
+              <p className="muted" style={{ margin: 0 }}>Up next · Video {next.order_index} of {data.videos.length}</p>
+              <h2 style={{ margin: 0 }}>{next.title}</h2>
+            </div>
+            <span className="pill blue">{formatDuration(next.duration_seconds)}</span>
+          </div>
+        </section>
+      )}
+
       {evergreen.length > 0 && (
         <section>
           <h2>Before you begin</h2>
           <ul className="video-list">
             {evergreen.map((v) => (
               <li key={v.id} className="video-row">
+                <Thumb src={`${evergreenBase}/${v.playlist}`} small />
                 <div className="video-meta">
                   <span className="video-title">{v.title}</span>
                   <span className="muted">{formatDuration(v.durationSeconds)} · optional</span>
@@ -78,7 +95,7 @@ export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate
         </h2>
         <ol className="video-list">
           {data.videos.map((v) => (
-            <li key={v.id} className={`video-row ${v.complete ? 'complete' : ''} ${!v.unlocked ? 'locked' : ''}`}>
+            <li key={v.id} className={`video-row ${v.complete ? 'complete' : ''} ${!v.unlocked ? 'locked' : ''} ${next?.id === v.id ? 'current' : ''}`}>
               <span className="video-status" aria-hidden="true">{v.complete ? '✓' : v.unlocked ? v.order_index : '🔒'}</span>
               <div className="video-meta">
                 <span className="video-title">{v.title}</span>

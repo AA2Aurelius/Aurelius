@@ -15,12 +15,17 @@ interface EvergreenVideo {
   title: string;
   order_index: number;
   duration_seconds: number;
-  hls_init_r2_key: string;
 }
 
-async function evergreenVideo(env: Env, id: string): Promise<EvergreenVideo | null> {
-  return env.DB.prepare(`SELECT * FROM evergreen_videos WHERE id = ?`)
-    .bind(id).first<EvergreenVideo>();
+// Where a kind of video lives: evergreen videos, or procedure videos played
+// as a plain preview for doctors.
+interface VodTables { videos: 'evergreen_videos' | 'videos'; segments: 'evergreen_segments' | 'video_segments' }
+const EVERGREEN: VodTables = { videos: 'evergreen_videos', segments: 'evergreen_segments' };
+const PROCEDURE: VodTables = { videos: 'videos', segments: 'video_segments' };
+
+async function initKey(env: Env, t: VodTables, id: string): Promise<string | null> {
+  const row = await env.DB.prepare(`SELECT hls_init_r2_key FROM ${t.videos} WHERE id = ?`).bind(id).first<{ hls_init_r2_key: string | null }>();
+  return row?.hls_init_r2_key ?? null;
 }
 
 const noGuard: MiddlewareHandler<AppEnv> = (_c, next) => next();
@@ -43,19 +48,30 @@ export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: 
     });
   });
 
+  registerVodRoutes(app, base, guard, EVERGREEN);
+}
+
+// Doctors can preview a procedure's own videos as plain VOD (GET
+// {base}/:videoId/playlist.m3u8 and its chunks). Nothing is logged, and it
+// has no effect on any patient's progress.
+export function registerPreviewRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHandler<AppEnv> = noGuard) {
+  registerVodRoutes(app, base, guard, PROCEDURE);
+}
+
+function registerVodRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHandler<AppEnv>, t: VodTables) {
   app.get(`${base}/:videoId/playlist.m3u8`, guard, async (c) => {
-    const video = await evergreenVideo(c.env, c.req.param('videoId') ?? '');
-    if (!video) return c.json({ error: 'Not found.' }, 404);
-    const { results: segments } = await c.env.DB.prepare(`SELECT idx, start_ms, duration_ms FROM evergreen_segments WHERE video_id = ? ORDER BY idx`)
-      .bind(video.id).all<Segment>();
+    const id = c.req.param('videoId') ?? '';
+    if (!(await initKey(c.env, t, id))) return c.json({ error: 'Not found.' }, 404);
+    const { results: segments } = await c.env.DB.prepare(`SELECT idx, start_ms, duration_ms FROM ${t.segments} WHERE video_id = ? ORDER BY idx`)
+      .bind(id).all<Segment>();
     if (segments.length === 0) return c.json({ error: 'Not found.' }, 404);
     const body = hlsPlaylist(segments, segments.length - 1, true, true);
     return new Response(body, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'private, no-store' } });
   });
 
   app.get(`${base}/:videoId/init.mp4`, guard, async (c) => {
-    const video = await evergreenVideo(c.env, c.req.param('videoId') ?? '');
-    const res = video && (await serveR2Object(c.env.VIDEOS, video.hls_init_r2_key, c.req.raw));
+    const key = await initKey(c.env, t, c.req.param('videoId') ?? '');
+    const res = key && (await serveR2Object(c.env.VIDEOS, key, c.req.raw));
     return res || c.json({ error: 'Not found.' }, 404);
   });
 
@@ -63,7 +79,7 @@ export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: 
     const m = /^(\d{1,6})\.m4s$/.exec(c.req.param('file'));
     if (!m) return c.json({ error: 'Not found.' }, 404);
     const seg = await c.env.DB.prepare(
-      `SELECT r2_key FROM evergreen_segments WHERE video_id = ? AND idx = ?`
+      `SELECT r2_key FROM ${t.segments} WHERE video_id = ? AND idx = ?`
     ).bind(c.req.param('videoId') ?? '', Number(m[1])).first<{ r2_key: string }>();
     const res = seg && (await serveR2Object(c.env.VIDEOS, seg.r2_key, c.req.raw));
     return res || c.json({ error: 'Not found.' }, 404);

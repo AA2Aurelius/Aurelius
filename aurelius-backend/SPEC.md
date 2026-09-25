@@ -57,7 +57,12 @@ No billing, no subscriptions.
 ### Routes
 Doctor (session cookie required, except login):
 - `POST /api/doctor/login`, `POST /api/doctor/logout`, `GET /api/doctor/me`
-- `GET /api/doctor/procedures`
+- `GET /api/doctor/procedures` — with video count, total length and first
+  video (for its thumbnail)
+- `GET /api/doctor/procedures/:id/videos` — the procedure's videos in order;
+  `GET /api/doctor/preview/:videoId/playlist.m3u8` (and its chunks) plays
+  one as plain VOD for a doctor's preview. Nothing is logged and no
+  patient's progress is affected.
 - `GET /api/doctor/patients` — the signed-in doctor's patients only,
   cancelled links included (a link replaced by a resend shows as its
   replacement)
@@ -189,11 +194,13 @@ Public:
    rotating it would make older certificates fail. Before rotating, keep
    old public keys available by `key_id`.
 8. **Frontend.** The patient pages and the doctor portal are built
-   (`aurelius-web`, below); the patient side has been tested on an iPhone.
-   Still to do: previewing a procedure's own videos in the portal (only
-   the evergreen ones can be previewed; there's no doctor endpoint for
-   procedure video playback yet), and removing the Next.js app at the repo
-   root, which is the old standalone demo. One browser holds one patient
+   (`aurelius-web`, below), styled after the Scope of Work wireframes; the
+   patient side has been tested on an iPhone. Still to do from the Scope of
+   Work: doctors signing up themselves, plans and billing, and a fuller
+   public landing page. Thumbnails are captured in the browser from each
+   video, so iPhones (which won't load video without a tap) show a
+   placeholder; poster images made at upload would fix that. The Next.js
+   app at the repo root is the old standalone demo and can be removed. One browser holds one patient
    session at a time; verifying a second prescription replaces the first.
 
 ## Frontend (`aurelius-web`)
@@ -229,22 +236,29 @@ The patient flow at `/watch/{token}`:
    code with its `/verify` link.
 
 The doctor portal at `/doctor` (sign in with the account made by
-`create-doctor`):
+`create-doctor`) has a sidebar (Videos, Patients, Invite patient, Sign out)
+and an **Invite** pop-up reachable from every page: patient name and email,
+and the procedure, picked from a list with thumbnails; it shows invites
+sent this month.
+- **Videos** (the home page) — a card per procedure with a thumbnail, its
+  video count and length, how many of the doctor's patients have it, and
+  an Invite button; then the "Before you begin" videos, which can be
+  previewed.
+- **Procedure page** — a preview player for each of its videos in order,
+  and a panel of the doctor's patients on it with hours left on each link.
 - **Patients** — every prescription the doctor has sent, newest first,
   with a status (not started, in progress, fewer than 12 hours left,
   expired, cancelled, complete) and videos completed; searchable by
   patient or procedure.
-- **New prescription** — patient name, email and procedure. The patient is
-  emailed their link; the link is also shown once, behind "Show the
-  patient's link", with a warning, and shown open if the email failed.
+- After an invite, the patient is emailed their link; it's also shown once
+  in the pop-up, behind "Show the patient's link", with a warning, and
+  shown open if the email failed.
 - **Patient page** — per-video started and completed times, pauses and
   skip attempts; **Send a new link** (optionally to a corrected email; the
   old link stops working and progress starts again) and **Cancel link**
   (with an optional reason for the record). Links between a resent link
   and the one it replaced. Once every video is complete, the certificate,
   with a warning if it fails its integrity check.
-- **Videos** — the procedures and their video counts, and previews of the
-  "Before you begin" videos.
 
 A 401 from the API (30 minutes idle, 12 hours at most) returns the doctor
 to the sign-in form, which keeps the page they were on.

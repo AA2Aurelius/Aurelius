@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, api } from '../api';
+import { ApiError, api, formatDuration } from '../api';
 import { CertificateView, type CertificateResponse } from '../components/CertificateView';
 import { PlainPlayer, type EvergreenVideo } from '../components/PlainPlayer';
 import { PacedPlayer } from './PacedPlayer';
@@ -58,7 +58,23 @@ export function WatchApp({ token }: { token: string }) {
 
   switch (view.kind) {
     case 'video':
-      return <PacedPlayer key={view.video.id} token={token} video={view.video} onDone={backToPortal} onBack={backToPortal} />;
+      return (
+        <div className="stack-lg">
+          <PacedPlayer key={view.video.id} token={token} video={view.video} onDone={backToPortal} onBack={backToPortal} />
+          <section className="card">
+            <h2>{data.procedureName}: your videos</h2>
+            <ol className="takeaways">
+              {data.videos.map((v) => (
+                <li key={v.id} className={v.id === view.video.id ? 'now' : v.complete ? 'done' : ''}>
+                  <span>
+                    {v.title} <span className="muted">· {formatDuration(v.duration_seconds)}{v.complete ? ' · ✓ complete' : v.id === view.video.id ? ' · watching now' : ''}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      );
     case 'evergreen':
       return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} backLabel="← All videos" onBack={() => setView({ kind: 'portal' })} />;
     case 'certificate':
@@ -68,6 +84,7 @@ export function WatchApp({ token }: { token: string }) {
         <Portal
           data={data}
           evergreen={evergreen}
+          evergreenBase={base}
           onPlay={(video) => setView({ kind: 'video', video })}
           onPlayEvergreen={(video) => setView({ kind: 'evergreen', video })}
           onCertificate={() => setView({ kind: 'certificate' })}

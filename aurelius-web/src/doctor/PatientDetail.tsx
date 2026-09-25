@@ -42,7 +42,7 @@ export function PatientDetail({ id }: { id: string }) {
   }, [id]);
   useEffect(load, [load]);
 
-  if (error) return <div className="card stack"><p className="error">{error}</p><Link to="/doctor">← Patients</Link></div>;
+  if (error) return <div className="card stack"><p className="error">{error}</p><Link to="/doctor/patients">← Patients</Link></div>;
   if (!d) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
 
   const done = d.videos.filter((v) => v.completed_at).length;
@@ -54,7 +54,7 @@ export function PatientDetail({ id }: { id: string }) {
   return (
     <div className="stack-lg">
       <div className="stack">
-        <Link to="/doctor">← Patients</Link>
+        <Link to="/doctor/patients">← Patients</Link>
         <div className="row">
           <h1>{d.patient_name}</h1>
           <span className={`pill ${status.tone}`}>{status.label}</span>

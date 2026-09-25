@@ -20,7 +20,7 @@ describe('evergreen videos: separate from procedure sets', () => {
     const eg = await seedEvergreen('Brain Science', order());
     const { doctorClient, procedureId, prescriptionId, token, patientEmail } = await prescribe({ videos: 2 });
     const procs = (await (await doctorClient.fetch('/api/doctor/procedures')).json()) as any[];
-    expect(procs.find((p) => p.id === procedureId).video_count).toBe(2);
+    expect(procs.find((p) => p.id === procedureId)).toMatchObject({ video_count: 2, total_seconds: 120 });
     const { results } = await env.DB.prepare(`SELECT video_id FROM video_progress WHERE prescription_id = ?`).bind(prescriptionId).all<any>();
     expect(results).toHaveLength(2);
     expect(results.map((r) => r.video_id)).not.toContain(eg);
@@ -114,5 +114,45 @@ describe('evergreen videos: patient portal', () => {
     expect((await patient.fetch(`/api/watch/${token}/evergreen/${id}/playlist.m3u8`)).status).toBe(200);
     expect((await doctorClient.post(`/api/doctor/prescriptions/${prescriptionId}/cancel`)).status).toBe(200);
     expect((await patient.fetch(`/api/watch/${token}/evergreen/${id}/playlist.m3u8`)).status).toBe(410);
+  });
+});
+
+describe('procedure video previews for doctors', () => {
+  it('lists a procedure\'s videos in order and plays them as VOD, with nothing logged', async () => {
+    const { doctorClient, procedureId, videoIds, prescriptionId } = await prescribe({ videos: 2, duration: 10 });
+    const before = (await events(prescriptionId)).length;
+
+    const procs = (await (await doctorClient.fetch('/api/doctor/procedures')).json()) as any[];
+    expect(procs.find((p) => p.id === procedureId)).toMatchObject({ first_video_id: videoIds[0], total_seconds: 20 });
+    const patients = (await (await doctorClient.fetch('/api/doctor/patients')).json()) as any[];
+    expect(patients.find((p) => p.id === prescriptionId).procedure_id).toBe(procedureId);
+
+    const list = (await (await doctorClient.fetch(`/api/doctor/procedures/${procedureId}/videos`)).json()) as any;
+    expect(list.procedure).toMatchObject({ id: procedureId, name: 'Hip Replacement' });
+    expect(list.videos.map((v: any) => v.id)).toEqual(videoIds);
+    expect(list.videos[0]).toMatchObject({ order: 1, durationSeconds: 10, playlist: `preview/${videoIds[0]}/playlist.m3u8` });
+
+    const pl = await doctorClient.fetch(`/api/doctor/preview/${videoIds[0]}/playlist.m3u8`);
+    expect(pl.status).toBe(200);
+    const text = await pl.text();
+    expect(text).toContain('#EXT-X-PLAYLIST-TYPE:VOD');
+    expect(text.match(/seg\/\d+\.m4s/g)).toEqual(['seg/0.m4s', 'seg/1.m4s', 'seg/2.m4s']);
+    expect(await bytes(await doctorClient.fetch(`/api/doctor/preview/${videoIds[0]}/init.mp4`))).toEqual(INIT_BYTES);
+    // Any chunk, in any order: a preview isn't paced.
+    expect(await bytes(await doctorClient.fetch(`/api/doctor/preview/${videoIds[0]}/seg/2.m4s`))).toEqual(segmentBytes(2));
+
+    expect((await events(prescriptionId)).length).toBe(before);
+  });
+
+  it('needs a signed-in doctor, and serves only procedure videos', async () => {
+    const { procedureId, videoIds, doctorClient } = await prescribe({ videos: 1 });
+    const stranger = new Client();
+    expect((await stranger.fetch(`/api/doctor/procedures/${procedureId}/videos`)).status).toBe(401);
+    expect((await stranger.fetch(`/api/doctor/preview/${videoIds[0]}/playlist.m3u8`)).status).toBe(401);
+    expect((await stranger.fetch(`/api/doctor/preview/${videoIds[0]}/seg/0.m4s`)).status).toBe(401);
+
+    const eg = await seedEvergreen('Brain Science', order());
+    expect((await doctorClient.fetch(`/api/doctor/preview/${eg}/playlist.m3u8`)).status).toBe(404);
+    expect((await doctorClient.fetch(`/api/doctor/procedures/not-a-procedure/videos`)).status).toBe(404);
   });
 });
