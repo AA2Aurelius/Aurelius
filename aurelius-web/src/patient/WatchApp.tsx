@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, api } from '../api';
-import { Certificate } from './Certificate';
-import { EvergreenPlayer, type EvergreenVideo } from './EvergreenPlayer';
+import { CertificateView, type CertificateResponse } from '../components/CertificateView';
+import { PlainPlayer, type EvergreenVideo } from '../components/PlainPlayer';
 import { PacedPlayer } from './PacedPlayer';
 import { Portal, type PortalData, type PortalVideo } from './Portal';
 import { VerifyIdentity } from './VerifyIdentity';
@@ -60,9 +60,9 @@ export function WatchApp({ token }: { token: string }) {
     case 'video':
       return <PacedPlayer key={view.video.id} token={token} video={view.video} onDone={backToPortal} onBack={backToPortal} />;
     case 'evergreen':
-      return <EvergreenPlayer token={token} video={view.video} onBack={() => setView({ kind: 'portal' })} />;
+      return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} backLabel="← All videos" onBack={() => setView({ kind: 'portal' })} />;
     case 'certificate':
-      return <Certificate token={token} onBack={() => setView({ kind: 'portal' })} />;
+      return <CertificateView load={() => api<CertificateResponse>(`${base}/certificate`)} backLabel="← All videos" onBack={() => setView({ kind: 'portal' })} />;
     default:
       return (
         <Portal

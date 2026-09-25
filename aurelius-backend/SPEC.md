@@ -58,7 +58,9 @@ No billing, no subscriptions.
 Doctor (session cookie required, except login):
 - `POST /api/doctor/login`, `POST /api/doctor/logout`, `GET /api/doctor/me`
 - `GET /api/doctor/procedures`
-- `GET /api/doctor/patients` — the signed-in doctor's patients only
+- `GET /api/doctor/patients` — the signed-in doctor's patients only,
+  cancelled links included (a link replaced by a resend shows as its
+  replacement)
 - `GET /api/doctor/prescriptions/:id` — per-video progress
 - `GET /api/doctor/prescriptions/:id/certificate` — full certificate + integrity check
 - `POST /api/doctor/prescribe` — emails the patient their link; the link is
@@ -186,13 +188,13 @@ Public:
 7. **Signing-key rotation.** Verification uses the current key only;
    rotating it would make older certificates fail. Before rotating, keep
    old public keys available by `key_id`.
-8. **Frontend.** The patient side is built (`aurelius-web`, below). Still
-   to do: the **doctor portal** (sign in, prescribe, progress, resend and
-   cancel; until then `npm run test-prescribe` creates prescriptions), and
-   **testing on real devices**, iOS Safari in particular. The Next.js app
-   at the repo root is the old standalone demo and can be removed. One
-   browser holds one patient session at a time; verifying a second
-   prescription replaces the first.
+8. **Frontend.** The patient pages and the doctor portal are built
+   (`aurelius-web`, below); the patient side has been tested on an iPhone.
+   Still to do: previewing a procedure's own videos in the portal (only
+   the evergreen ones can be previewed; there's no doctor endpoint for
+   procedure video playback yet), and removing the Next.js app at the repo
+   root, which is the old standalone demo. One browser holds one patient
+   session at a time; verifying a second prescription replaces the first.
 
 ## Frontend (`aurelius-web`)
 React + TypeScript, built with Vite into `aurelius-web/dist`, which the
@@ -202,8 +204,9 @@ for the pages (a strict Content-Security-Policy that allows only
 Turnstile as third-party code, and `Referrer-Policy: strict-origin` so the
 link token in the URL never leaks) are in `aurelius-web/public/_headers`.
 
-Pages: `/watch/{token}` (the patient), `/verify/{code}` (public
-certificate check), and `/` (a short landing page with a code check).
+Pages: `/watch/{token}` (the patient), `/doctor` (the doctor portal),
+`/verify/{code}` (public certificate check), and `/` (a short landing page
+with a code check and a link to the doctor sign-in).
 
 The patient flow at `/watch/{token}`:
 1. **Confirm it's you** — Turnstile, then a 6-digit code emailed to the
@@ -224,6 +227,27 @@ The patient flow at `/watch/{token}`:
 4. **Certificate** — once every video is complete: the details, per-video
    completion times, identity and pacing statements, and the verification
    code with its `/verify` link.
+
+The doctor portal at `/doctor` (sign in with the account made by
+`create-doctor`):
+- **Patients** — every prescription the doctor has sent, newest first,
+  with a status (not started, in progress, fewer than 12 hours left,
+  expired, cancelled, complete) and videos completed; searchable by
+  patient or procedure.
+- **New prescription** — patient name, email and procedure. The patient is
+  emailed their link; the link is also shown once, behind "Show the
+  patient's link", with a warning, and shown open if the email failed.
+- **Patient page** — per-video started and completed times, pauses and
+  skip attempts; **Send a new link** (optionally to a corrected email; the
+  old link stops working and progress starts again) and **Cancel link**
+  (with an optional reason for the record). Links between a resent link
+  and the one it replaced. Once every video is complete, the certificate,
+  with a warning if it fails its integrity check.
+- **Videos** — the procedures and their video counts, and previews of the
+  "Before you begin" videos.
+
+A 401 from the API (30 minutes idle, 12 hours at most) returns the doctor
+to the sign-in form, which keeps the page they were on.
 
 The public Turnstile site key is in `aurelius-web/.env.production`; builds
 in any other mode leave it out, and the widget is skipped (as is the
@@ -261,7 +285,8 @@ off. A stopped run may leave the chunks of the video it was on in R2 with
 nothing pointing at them; they're harmless. Single videos:
 `--file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1`,
 or `--evergreen` in place of `--procedure`.
-**Trying the patient pages before the doctor portal exists.**
+**Prescribing from the command line.** The doctor portal is the normal
+way; for scripted tests,
 `npm run test-prescribe -- --doctor you@clinic.com --email patient@example.com --name "Test Patient" --procedure "Hip Replacement"`
 signs in as that doctor (it asks for the password), prescribes through the
 live API and prints the patient link; the patient also gets the normal

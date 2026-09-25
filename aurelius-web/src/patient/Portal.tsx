@@ -1,5 +1,5 @@
-import { formatDuration } from '../api';
-import type { EvergreenVideo } from './EvergreenPlayer';
+import { formatDuration, formatHoursLeft } from '../api';
+import type { EvergreenVideo } from '../components/PlainPlayer';
 
 export interface PortalVideo {
   id: string;
@@ -17,13 +17,6 @@ export interface PortalData {
   hoursLeft: number;
   certified: boolean;
   videos: PortalVideo[];
-}
-
-function timeLeft(hours: number): string {
-  if (hours <= 0) return 'This link has expired';
-  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} minutes left`;
-  const h = Math.floor(hours);
-  return `${h} hour${h === 1 ? '' : 's'} left`;
 }
 
 export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate }: {
@@ -56,7 +49,7 @@ export function Portal({ data, evergreen, onPlay, onPlayEvergreen, onCertificate
       ) : (
         <div className={`banner ${data.hoursLeft < 12 ? 'warning' : ''}`}>
           <p>
-            <strong>{timeLeft(data.hoursLeft)}</strong> to finish the videos with this link.
+            <strong>{formatHoursLeft(data.hoursLeft)}</strong> to finish the videos with this link.
             {data.hoursLeft < 12 && !expired && ' Please finish soon, or ask your doctor for a new link.'}
           </p>
         </div>

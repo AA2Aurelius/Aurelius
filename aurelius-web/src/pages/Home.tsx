@@ -13,6 +13,7 @@ export function Home() {
         <h1>Aurelius</h1>
         <p>Short videos from your doctor that explain your procedure, so you know what to expect before you consent.</p>
         <p><strong>Patients:</strong> open the link in the email from your doctor's office to get started.</p>
+        <p><strong>Doctors:</strong> <a href="/doctor">sign in</a> to prescribe videos and follow your patients' progress.</p>
       </div>
       <form className="card stack" onSubmit={go}>
         <h2>Check a certificate</h2>

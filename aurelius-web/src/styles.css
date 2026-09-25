@@ -61,15 +61,17 @@ a { color: var(--accent); }
 .error { color: var(--danger); }
 
 label { display: block; font-weight: 600; }
-input {
+input, select, textarea {
   width: 100%;
   font: inherit;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  color: var(--text);
 }
-input:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+textarea { resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
 .code-input { font-size: 1.6rem; letter-spacing: 0.4em; text-align: center; max-width: 260px; }
 
 .button {
@@ -87,6 +89,9 @@ input:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(-
   cursor: pointer;
 }
 .button.secondary { background: var(--surface); color: var(--accent); }
+a.button { text-decoration: none; }
+.button.danger { background: var(--danger); border-color: var(--danger); }
+.button.danger-text { color: var(--danger); border-color: var(--danger); }
 .button:disabled { opacity: 0.5; cursor: not-allowed; }
 .button:focus-visible, .link-button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
 .link-button {
@@ -140,6 +145,31 @@ input:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(-
 .video-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .video-title { font-weight: 600; }
 .video-meta .muted { font-size: 0.9rem; }
+
+/* Doctor portal */
+.narrow { max-width: 520px; margin-left: auto; margin-right: auto; }
+.doctor-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab { padding: 8px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; }
+.tab.active { background: var(--accent-soft); color: var(--accent); }
+.signed-in { display: flex; align-items: center; gap: 12px; }
+.patient-row { color: inherit; text-decoration: none; flex-wrap: wrap; }
+.patient-row:hover { border-color: var(--accent); }
+.patient-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 0.9rem; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: var(--bg); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
+.pill.success { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.pill.warning { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
+.pill.danger { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.data-table th, .data-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.data-table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0 0; font-size: 0.95rem; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; }
+details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details[open] summary { margin-bottom: 12px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Player */
 .player-title { font-size: 1.3rem; margin: 8px 0 16px; }
@@ -244,6 +274,10 @@ input:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(-
   .card, .certificate { padding: 20px 16px; }
   .video-row { flex-wrap: wrap; }
   .video-row .button { width: 100%; }
+  .patient-progress { align-items: flex-start; }
+  .data-table th { white-space: normal; }
+  .data-table th:nth-child(3), .data-table td:nth-child(3),
+  .data-table th:nth-child(4), .data-table td:nth-child(4) { display: none; }
   .cert-table th:nth-child(3), .cert-table td:nth-child(3) { display: none; }
 }
 

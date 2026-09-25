@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ApiError, api, formatDateTime, formatDuration } from '../api';
+import { ApiError, formatDateTime, formatDuration } from '../api';
 
-interface CertificateResponse {
+export interface CertificateResponse {
   verificationCode: string;
+  integrity?: { valid: boolean; problems: string[] };
   certificate: {
     certificate_id: string;
     issued_at: string;
@@ -25,17 +26,23 @@ interface CertificateResponse {
 }
 
 // The certificate of completion, laid out for printing (or saving as PDF
-// from the browser's print dialog).
-export function Certificate({ token, onBack }: { token: string; onBack: () => void }) {
+// from the browser's print dialog). Patients and doctors load it from
+// different endpoints; `load` fetches it.
+export function CertificateView({ load, backLabel, onBack }: {
+  load: () => Promise<CertificateResponse>;
+  backLabel: string;
+  onBack: () => void;
+}) {
   const [data, setData] = useState<CertificateResponse | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    api<CertificateResponse>(`/api/watch/${encodeURIComponent(token)}/certificate`)
+    load()
       .then(setData)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the certificate.'));
-  }, [token]);
+    // `load` is recreated on every render; fetch once per mount.
+  }, []);
 
-  if (error) return <div className="card"><p className="error">{error}</p><button className="button" onClick={onBack}>Back</button></div>;
+  if (error) return <div className="card stack"><p className="error">{error}</p><button className="button" onClick={onBack}>Back</button></div>;
   if (!data) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
 
   const c = data.certificate;
@@ -43,9 +50,15 @@ export function Certificate({ token, onBack }: { token: string; onBack: () => vo
   return (
     <div className="stack">
       <div className="no-print row">
-        <button className="link-button" onClick={onBack}>← All videos</button>
+        <button className="link-button" onClick={onBack}>{backLabel}</button>
         <button className="button" onClick={() => window.print()}>Print or save as PDF</button>
       </div>
+
+      {data.integrity && !data.integrity.valid && (
+        <div className="banner danger no-print">
+          <p><strong>This certificate failed its integrity check.</strong> {data.integrity.problems.join(' ')}</p>
+        </div>
+      )}
 
       <article className="certificate">
         <p className="cert-brand">Aurelius</p>
