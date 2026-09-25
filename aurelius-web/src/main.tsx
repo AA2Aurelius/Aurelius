@@ -33,7 +33,7 @@ function App() {
           {badge && <span className="header-pill">{badge}</span>}
         </div>
       </header>
-      <main className={`container ${doctor ? 'wide' : ''}`}>{page}</main>
+      <main className={`container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
       <footer className="site-footer no-print">
         © {new Date().getFullYear()} Aurelius Code · Because everyone can use a little help from time to time
       </footer>

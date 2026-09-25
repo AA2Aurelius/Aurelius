@@ -58,7 +58,7 @@ a { color: var(--link); }
 .header-pill { background: var(--primary-soft); color: var(--primary); border-radius: 999px; padding: 5px 14px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
 
 .container { width: 100%; max-width: 820px; margin: 0 auto; padding: 28px 16px 40px; }
-.container.wide { max-width: 1180px; }
+.container.wide { max-width: 1320px; }
 .site-footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 8px 16px 28px; margin-top: auto; }
 
 .card {
@@ -220,7 +220,36 @@ button.thumb:focus-visible { outline: 3px solid var(--focus); outline-offset: 3p
 .invite-link { display: inline-flex; align-items: center; gap: 10px; background: none; border: none; font: inherit; color: var(--muted); cursor: pointer; padding: 0; border-radius: 10px; }
 .invite-link:hover { color: var(--primary); }
 
-.procedure-layout { display: grid; grid-template-columns: 1fr 290px; gap: 24px; align-items: start; }
+.procedure-layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
+
+/* Doctor home: filter chips and a grid of video cards */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 7px 16px; font: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+.chip:hover { color: var(--text); border-color: #c5d0ff; }
+.chip.active { background: var(--text); color: #fff; border-color: var(--text); }
+.chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+.vid-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
+.vid-card .thumb { border-radius: 0; }
+.vid-card-body { padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.vid-category { color: var(--primary); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.vid-card-body h3 { margin: 0; font-size: 0.98rem; font-weight: 800; line-height: 1.35; }
+.vid-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 4px; font-size: 0.88rem; }
+.vid-card-foot .link-button { padding: 2px 0; }
+.video-group { display: grid; gap: 14px; }
+.video-group + .video-group { border-top: 1px solid var(--border); padding-top: 24px; }
+.video-group-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.video-group-head h2 { margin: 0 0 2px; font-size: 1.3rem; }
+.video-group-head p { margin: 0; font-size: 0.92rem; }
+.see-all { font-size: 0.85rem; font-weight: 700; text-decoration: none; }
+
+/* Patient: the main video, with the set listed down one side */
+.watch-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+.watch-side { position: sticky; top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 18px; }
+.watch-side .video-list { gap: 8px; }
+.watch-side .video-row { box-shadow: none; padding: 10px 12px; gap: 10px; }
+.watch-side .video-status { width: 30px; height: 30px; font-size: 0.85rem; }
+.watch-side .video-title { font-size: 0.93rem; }
 .side-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 18px; }
 .side-panel h2 { display: flex; justify-content: space-between; align-items: baseline; }
 .person-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; }
@@ -448,7 +477,8 @@ details[open] summary { margin-bottom: 12px; }
   .nav-item { width: auto; padding: 8px 10px; gap: 8px; font-size: 0.95rem; }
   .sidebar-spacer, .help-card, .sidebar-user, .nav-invite { display: none; }
   .sidebar { gap: 2px; justify-content: space-between; flex-wrap: nowrap; overflow-x: auto; }
-  .procedure-layout { grid-template-columns: 1fr; }
+  .procedure-layout, .watch-layout { grid-template-columns: 1fr; }
+  .watch-side { position: static; }
 }
 
 @media (max-width: 560px) {

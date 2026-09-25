@@ -304,7 +304,7 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
 
   return (
     <div className="player-page">
-      <button className="link-button" onClick={onBack}>← All videos</button>
+      <button className="link-button" onClick={onBack}>✕ Close video</button>
       <h1 className="player-title">
         <span className="muted">Video {video.order_index}.</span> {video.title}
       </h1>

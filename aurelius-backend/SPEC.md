@@ -222,7 +222,8 @@ The patient flow at `/watch/{token}`:
    videos in order, each locked until the previous one is complete, with
    a check mark once the server confirms completion; time left on the link,
    with a warning under 12 hours.
-3. **Player** — Safari plays HLS natively; other browsers load hls.js
+3. **Player** — the video plays in the main area with the set's videos
+   listed down one side. Safari plays HLS natively; other browsers load hls.js
    (light build) on demand. Controls are Play/Pause, Back 10 s and full
    screen; there's no seek bar. A heartbeat every 5 s reports position,
    playing and `document.visibilityState`. The video pauses when the page
@@ -240,10 +241,11 @@ The doctor portal at `/doctor` (sign in with the account made by
 and an **Invite** pop-up reachable from every page: patient name and email,
 and the procedure, picked from a list with thumbnails; it shows invites
 sent this month.
-- **Videos** (the home page) — a card per procedure with a thumbnail, its
-  video count and length, how many of the doctor's patients have it, and
-  an Invite button; then the "Before you begin" videos, which can be
-  previewed.
+- **Videos** (the home page) — every video, grouped by procedure (a
+  procedure is one set, e.g. Spinal Fusion's 6 videos, watched in order and
+  certified together), each group with its own Invite button; then the
+  "Before you begin" videos. Filter buttons show one group, and the
+  Patients panel (hours left on each link) sits alongside.
 - **Procedure page** — a preview player for each of its videos in order,
   and a panel of the doctor's patients on it with hours left on each link.
 - **Patients** — every prescription the doctor has sent, newest first,
