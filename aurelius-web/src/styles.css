@@ -124,6 +124,8 @@ body.theme-patient .thumb { background: linear-gradient(135deg, #0b3f45 0%, #0f8
 .container { width: 100%; max-width: 820px; margin: 0 auto; padding: 28px 16px 40px; }
 .container.wide { max-width: 1320px; }
 .site-footer { color: var(--muted); font-size: 0.82rem; padding: 26px 16px 30px; margin-top: auto; background: #fff; border-top: 1px solid #e6e9f2; }
+.footer-link { color: var(--site-blue); font-weight: 700; text-decoration: none; }
+.footer-link:hover { text-decoration: underline; }
 .site-footer-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; }
 
 .card {

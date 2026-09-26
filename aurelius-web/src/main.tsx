@@ -77,6 +77,7 @@ function App() {
         <div className="site-footer-inner">
           <Wordmark small />
           <span>Because everyone can use a little help from time to time</span>
+          <a className="footer-link" href="/doctor">Doctor sign in</a>
           <span>© {new Date().getFullYear()} Aurelius Code. All rights reserved</span>
         </div>
       </footer>
