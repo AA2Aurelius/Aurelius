@@ -236,8 +236,8 @@ export function Home() {
             <div className="model-panel">
               <div className="model-figure">
                 <span className="how-icon purple" aria-hidden="true"><VerifiedIcon /></span>
-                <p className="big">Quarterly</p>
-                <p className="proc-sub">fee based on malpractice savings</p>
+                <p className="big">10%</p>
+                <p className="proc-sub">of malpractice savings, billed quarterly</p>
                 <a className="button mint small" href="#signup">Contact us</a>
               </div>
               <div className="model-details">
@@ -250,7 +250,7 @@ export function Home() {
                   <li><CheckBoxIcon /> Mandatory for every patient before surgery</li>
                   <li><CheckBoxIcon /> No certificate, no surgery</li>
                   <li><CheckBoxIcon /> Each certificate is signed, time-stamped and can be checked by anyone</li>
-                  <li><CheckBoxIcon /> Our fee is based on the malpractice savings, billed quarterly</li>
+                  <li><CheckBoxIcon /> Our fee is 10% of the malpractice savings, billed quarterly</li>
                 </ul>
               </div>
             </div>
