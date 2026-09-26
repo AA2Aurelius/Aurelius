@@ -33,9 +33,9 @@ export const MALPRACTICE_LOSSES: LossRow[] = [
 const RATES = [0.005, 0.01, 0.02, 0.05];
 const FEE = 0.1;
 
+// Amounts in millions throughout, as the companies report them.
 export function money(n: number): string {
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(n >= 100e9 ? 0 : 1)} billion`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(n >= 100e6 ? 0 : 1)} million`;
+  if (n >= 1e6) return `$${(n / 1e6).toLocaleString('en-US', { maximumFractionDigits: n >= 100e6 ? 0 : 1 })} million`;
   if (n >= 1e3) return `$${Math.round(n / 1e3)},000`;
   return `$${Math.round(n)}`;
 }

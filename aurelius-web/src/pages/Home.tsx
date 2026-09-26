@@ -208,7 +208,7 @@ export function Home() {
                 <span className="how-icon green" aria-hidden="true"><CardIcon /></span>
                 <p className="big">10%</p>
                 <p className="proc-sub">of what we save payers or insurers</p>
-                <a className="button mint small" href="#signup">Talk to us</a>
+                <a className="button mint small" href="#signup">Contact us</a>
               </div>
               <div className="model-details">
                 <h3>Revenue share</h3>
@@ -238,7 +238,7 @@ export function Home() {
                 <span className="how-icon purple" aria-hidden="true"><VerifiedIcon /></span>
                 <p className="big">Quarterly</p>
                 <p className="proc-sub">fee based on malpractice savings</p>
-                <a className="button mint small" href="#signup">Talk to us</a>
+                <a className="button mint small" href="#signup">Contact us</a>
               </div>
               <div className="model-details">
                 <h3>Loss prevention mandate</h3>
