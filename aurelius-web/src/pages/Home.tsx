@@ -39,6 +39,14 @@ const PLANS = [
   { name: 'Large Hospitals', patients: 'Up to 1000 patients', month: 332, blurb: 'For hospitals with many surgeons.', color: 'gold' },
 ];
 
+// The three ways to work with Aurelius Code, shown as tabs under Pricing.
+const MODELS = [
+  { id: 'subscription', label: 'Subscription' },
+  { id: 'revenue', label: 'Revenue share' },
+  { id: 'mandate', label: 'Loss prevention mandate' },
+] as const;
+type Model = (typeof MODELS)[number]['id'];
+
 const STEPS: Array<{ label: string; icon: ReactNode; color: string }> = [
   { label: 'Get verified', icon: <VerifiedIcon />, color: 'orange' },
   { label: 'Pay', icon: <CardIcon />, color: 'blue' },
@@ -51,6 +59,7 @@ export function Home() {
   const [code, setCode] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [yearly, setYearly] = useState(false);
+  const [model, setModel] = useState<Model>('subscription');
   const go = (e: FormEvent) => {
     e.preventDefault();
     const c = code.trim();
@@ -145,28 +154,99 @@ export function Home() {
             <div>
               <span className="home-kicker" aria-hidden="true" />
               <h2 className="home-h2">Pricing</h2>
-              <p className="home-lead">Every time you share the videos with a patient, it counts.</p>
-            </div>
-            <div className="toggle" role="group" aria-label="Billing">
-              <button aria-pressed={!yearly} className={!yearly ? 'on' : ''} onClick={() => setYearly(false)}>Month</button>
-              <button aria-pressed={yearly} className={yearly ? 'on' : ''} onClick={() => setYearly(true)}>Year</button>
+              <p className="home-lead">Three ways to work with Aurelius Code. Choose one to see the details.</p>
             </div>
           </div>
-          <div className="price-grid">
-            {PLANS.map((p) => (
-              <article key={p.name} className="price-card">
-                <span className={`how-icon ${p.color}`} aria-hidden="true"><GridIcon /></span>
-                <h3>{p.name}</h3>
-                <p className="proc-sub">{p.patients}</p>
-                <p className="price-blurb">{p.blurb}</p>
-                <p className="price">
-                  ${(yearly ? p.month * 12 : p.month).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  <small>/{yearly ? 'yr' : 'mo'}</small>
-                </p>
-                <a className="button mint small" href="#signup">Sign up</a>
-              </article>
+          <div className="model-tabs" role="tablist" aria-label="Pricing options">
+            {MODELS.map((m, i) => (
+              <button
+                key={m.id}
+                role="tab"
+                id={`tab-${m.id}`}
+                aria-selected={model === m.id}
+                aria-controls={`panel-${m.id}`}
+                className={model === m.id ? 'on' : ''}
+                onClick={() => setModel(m.id)}
+              >
+                <span className="model-num">{i + 1}</span> {m.label}
+              </button>
             ))}
           </div>
+
+          {model === 'subscription' && (
+            <div role="tabpanel" id="panel-subscription" aria-labelledby="tab-subscription" className="stack">
+              <div className="model-intro">
+                <p>A flat monthly or yearly fee, sized to how many patients you invite. Every time you share the videos with a patient, it counts.</p>
+                <div className="toggle" role="group" aria-label="Billing">
+                  <button aria-pressed={!yearly} className={!yearly ? 'on' : ''} onClick={() => setYearly(false)}>Month</button>
+                  <button aria-pressed={yearly} className={yearly ? 'on' : ''} onClick={() => setYearly(true)}>Year</button>
+                </div>
+              </div>
+              <div className="price-grid">
+                {PLANS.map((p) => (
+                  <article key={p.name} className="price-card">
+                    <span className={`how-icon ${p.color}`} aria-hidden="true"><GridIcon /></span>
+                    <h3>{p.name}</h3>
+                    <p className="proc-sub">{p.patients}</p>
+                    <p className="price-blurb">{p.blurb}</p>
+                    <p className="price">
+                      ${(yearly ? p.month * 12 : p.month).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <small>/{yearly ? 'yr' : 'mo'}</small>
+                    </p>
+                    <a className="button mint small" href="#signup">Sign up</a>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {model === 'revenue' && (
+            <div role="tabpanel" id="panel-revenue" aria-labelledby="tab-revenue" className="model-panel">
+              <div className="model-figure">
+                <span className="how-icon green" aria-hidden="true"><CardIcon /></span>
+                <p className="big">10%</p>
+                <p className="proc-sub">of what we save payers or insurers</p>
+                <a className="button mint small" href="#signup">Talk to us</a>
+              </div>
+              <div className="model-details">
+                <h3>Revenue share</h3>
+                <p>
+                  For payers, insurers and the providers who work with them. There's no subscription: Aurelius Code is paid
+                  a share of the savings it delivers.
+                </p>
+                <ul className="proc-features">
+                  <li><CheckBoxIcon /> No upfront or monthly fee</li>
+                  <li><CheckBoxIcon /> Our fee is 10% of the savings to the payer or insurer</li>
+                  <li><CheckBoxIcon /> If there are no savings, there's no fee</li>
+                  <li><CheckBoxIcon /> Every patient's viewing is recorded on a signed certificate</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {model === 'mandate' && (
+            <div role="tabpanel" id="panel-mandate" aria-labelledby="tab-mandate" className="model-panel">
+              <div className="model-figure">
+                <span className="how-icon purple" aria-hidden="true"><VerifiedIcon /></span>
+                <p className="big">Quarterly</p>
+                <p className="proc-sub">fee based on malpractice savings</p>
+                <a className="button mint small" href="#signup">Talk to us</a>
+              </div>
+              <div className="model-details">
+                <h3>Loss prevention mandate</h3>
+                <p>
+                  Watching the videos becomes a requirement for surgery. Every patient watches all of their procedure's
+                  videos and earns the certificate; without the certificate, the surgery doesn't go ahead.
+                </p>
+                <ul className="proc-features">
+                  <li><CheckBoxIcon /> Mandatory for every patient before surgery</li>
+                  <li><CheckBoxIcon /> No certificate, no surgery</li>
+                  <li><CheckBoxIcon /> Each certificate is signed, time-stamped and can be checked by anyone</li>
+                  <li><CheckBoxIcon /> Our fee is based on the malpractice savings, billed quarterly</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

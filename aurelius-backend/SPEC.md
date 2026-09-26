@@ -227,7 +227,10 @@ green-and-gold AURELIUS CODE wordmark, a light page with white cards, the
 site blue for the home page hero and bands, text in Palatino. The home
 page has the hero, procedures, how it works, pricing (the wireframe's
 prices, in `pages/Home.tsx`), founder and mission, a certificate check and
-a sign-up band. On the home page the header sits on the hero's blue.
+a sign-up band. Pricing has three tabs: Subscription (the wireframe's
+plans, month or year), Revenue share (10% of what we save payers or
+insurers) and Loss prevention mandate (watching is required for surgery;
+a fee based on malpractice savings, billed quarterly). On the home page the header sits on the hero's blue.
 The doctor's Patients page is the "Invites History" table: patient and
 email, date, procedure, hours left, status ("Not accepted yet" until the
 patient confirms the one-time code, then "Confirmed", "Complete",
