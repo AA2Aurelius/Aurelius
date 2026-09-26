@@ -230,7 +230,12 @@ prices, in `pages/Home.tsx`), founder and mission, a certificate check and
 a sign-up band. Pricing has three tabs: Subscription (the wireframe's
 plans, month or year), Revenue share (10% of what we save payers or
 insurers) and Loss prevention mandate (watching is required for surgery;
-a fee based on malpractice savings, billed quarterly). On the home page the header sits on the hero's blue.
+a fee based on malpractice savings, billed quarterly). The last two show
+published annual claims or malpractice figures (with sources, in
+`pages/Savings.tsx`) next to what a chosen percentage cut would save and
+our 10% fee, and explain the fee: last full year's losses ÷ 4 as a
+quarterly baseline, each quarter's saving against it, 10% of that. The
+patient's pages say they must receive the certificate before surgery. On the home page the header sits on the hero's blue.
 The doctor's Patients page is the "Invites History" table: patient and
 email, date, procedure, hours left, status ("Not accepted yet" until the
 patient confirms the one-time code, then "Confirmed", "Complete",

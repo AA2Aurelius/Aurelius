@@ -1,4 +1,5 @@
 import { FormEvent, useState, type ReactNode } from 'react';
+import { FeeMethod, MALPRACTICE_LOSSES, PAYER_LOSSES, SavingsTable } from './Savings';
 import { CardIcon, CheckBoxIcon, GridIcon, HelpIcon, InviteIcon, VerifiedIcon } from '../components/icons';
 
 // The home page, after the Scope of Work wireframe: blue hero, procedures,
@@ -201,7 +202,8 @@ export function Home() {
           )}
 
           {model === 'revenue' && (
-            <div role="tabpanel" id="panel-revenue" aria-labelledby="tab-revenue" className="model-panel">
+            <div role="tabpanel" id="panel-revenue" aria-labelledby="tab-revenue" className="stack">
+            <div className="model-panel">
               <div className="model-figure">
                 <span className="how-icon green" aria-hidden="true"><CardIcon /></span>
                 <p className="big">10%</p>
@@ -222,10 +224,16 @@ export function Home() {
                 </ul>
               </div>
             </div>
+            <div className="savings-card">
+              <SavingsTable rows={PAYER_LOSSES} lossLabel="Claims paid in a year" caption="What payers and insurers pay out each year, and what a small cut would be worth." />
+              <FeeMethod kind="claims" />
+            </div>
+            </div>
           )}
 
           {model === 'mandate' && (
-            <div role="tabpanel" id="panel-mandate" aria-labelledby="tab-mandate" className="model-panel">
+            <div role="tabpanel" id="panel-mandate" aria-labelledby="tab-mandate" className="stack">
+            <div className="model-panel">
               <div className="model-figure">
                 <span className="how-icon purple" aria-hidden="true"><VerifiedIcon /></span>
                 <p className="big">Quarterly</p>
@@ -245,6 +253,11 @@ export function Home() {
                   <li><CheckBoxIcon /> Our fee is based on the malpractice savings, billed quarterly</li>
                 </ul>
               </div>
+            </div>
+            <div className="savings-card">
+              <SavingsTable rows={MALPRACTICE_LOSSES} lossLabel="Paid out in a year" caption="What U.S. malpractice claims cost each year, and what a small cut would be worth." />
+              <FeeMethod kind="malpractice" />
+            </div>
             </div>
           )}
         </div>

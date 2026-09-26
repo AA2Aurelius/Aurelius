@@ -48,6 +48,11 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
           Your doctor has asked you to watch these {data.videos.length} videos before your procedure. Watch them in order;
           each one unlocks the next.
         </p>
+        {!data.certified && !player && (
+          <p className="cert-required" role="note">
+            <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video.
+          </p>
+        )}
       </header>
 
       {data.certified ? (

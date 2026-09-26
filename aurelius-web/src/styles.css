@@ -572,6 +572,39 @@ details[open] summary { margin-bottom: 12px; }
 .model-details .proc-features { flex: none; margin: 4px 0 0; }
 .model-details .proc-features li { font-size: 0.95rem; }
 @media (max-width: 720px) { .model-panel { grid-template-columns: 1fr; } .model-details { padding: 24px 20px; } }
+.savings-card { background: #fff; color: var(--text); border-radius: 14px; box-shadow: 0 10px 30px rgba(5, 12, 60, 0.25); padding: 26px 28px; display: grid; gap: 22px; }
+.savings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.savings-caption { margin: 0; font-weight: 700; color: #1b2a6b; }
+.toggle.dark { border-color: #c9d2f5; align-items: center; }
+.toggle.dark button { color: #1b2a6b; padding: 7px 14px; letter-spacing: 0.04em; }
+.toggle.dark button.on { background: var(--site-blue); color: #fff; }
+.toggle-label { font-size: 0.78rem; color: var(--muted); padding: 0 10px; }
+.savings-card > *, .savings > * { min-width: 0; }
+.savings { display: grid; gap: 14px; min-width: 0; }
+.savings-wrap { overflow-x: auto; }
+.savings-table { width: 100%; border-collapse: collapse; min-width: 620px; font-size: 0.95rem; }
+.savings-table th { text-align: left; background: #b1b6d1; color: #fff; font-weight: 600; padding: 12px 14px; white-space: nowrap; }
+.savings-table td { padding: 12px 14px; border-top: 1px solid #e6e9f2; vertical-align: top; }
+.savings-table td strong { display: block; }
+.savings-table td span { font-size: 0.78rem; color: var(--muted); }
+.savings-table .amt { white-space: nowrap; font-weight: 700; }
+.savings-table .save { color: #1fae86; }
+.savings-table .fee { color: var(--site-blue); }
+.savings-note { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.fee-method { border-top: 1px solid #e6e9f2; padding-top: 18px; }
+.fee-method h4 { margin: 0 0 8px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: #1b2a6b; }
+.fee-method ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); }
+.fee-method strong { color: var(--text); }
+.fee-example { margin: 0; background: #f4f6fb; border-left: 4px solid var(--mint-cta); padding: 12px 14px; border-radius: 8px; color: var(--muted); }
+@media (max-width: 720px) {
+  .savings-card { padding: 20px 16px; }
+  .savings-table { min-width: 0; }
+  .savings-table thead { display: none; }
+  .savings-table tr { display: block; border-top: 1px solid #e6e9f2; padding: 10px 0; }
+  .savings-table td { display: flex; justify-content: space-between; gap: 12px; border: none; padding: 4px 2px; }
+  .savings-table td:first-child { display: block; padding-bottom: 8px; }
+  .savings-table td[data-label]::before { content: attr(data-label); font-weight: 400; color: var(--muted); }
+}
 .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 10px; }
 .price-card { background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(5, 12, 60, 0.25); padding: 26px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
 .price-card h3 { margin: 8px 0 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: #1b2a6b; }
@@ -757,3 +790,6 @@ details[open] summary { margin-bottom: 12px; }
   .top-nav .site-link { display: none; }
   .top-nav .nav-cta { margin-left: 0; }
 }
+
+/* "You must receive your certificate before your surgery" on the patient's pages */
+.cert-required { margin: 12px 0 0; padding: 10px 14px; border-radius: 10px; background: #fff4dc; border-left: 4px solid #f5b544; color: #6b3c00; }

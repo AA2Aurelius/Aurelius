@@ -388,6 +388,9 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
       )}
       {connectionTrouble && <p className="note">Having trouble reaching Aurelius. Retrying…</p>}
       {phase === 'error' && <p className="error">{error}</p>}
+      <p className="cert-required" role="note">
+        <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video.
+      </p>
       <p className="hint">
         Watch the whole video to continue. It pauses if you switch away, and you'll be asked now and then to confirm you're still watching.
       </p>
