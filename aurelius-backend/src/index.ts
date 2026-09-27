@@ -6,6 +6,7 @@ import type { AppEnv } from './routes/common';
 import { doctor } from './routes/doctor';
 import { patient } from './routes/patient';
 import { verify } from './routes/verify';
+import { publicRoutes } from './routes/public';
 
 // The frontend and this API share one origin (APP_ORIGIN); the API lives
 // under /api so it doesn't collide with frontend pages like /watch/{token}.
@@ -34,6 +35,7 @@ app.use('/api/*', async (c, next) => {
 app.route('/api/doctor', doctor);
 app.route('/api/watch', patient);
 app.route('/api/verify', verify);
+app.route('/api/public', publicRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found.' }, 404));
 app.onError((err, c) => {

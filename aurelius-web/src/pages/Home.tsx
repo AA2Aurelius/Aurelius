@@ -1,4 +1,6 @@
-import { FormEvent, useState, type ReactNode } from 'react';
+import { FormEvent, useEffect, useState, type ReactNode } from 'react';
+import { api } from '../api';
+import { VideoFrame, type EvergreenVideo } from '../components/PlainPlayer';
 import { FeeMethod, MALPRACTICE_LOSSES, PAYER_LOSSES, SavingsTable } from './Savings';
 import { CardIcon, CheckBoxIcon, GridIcon, HelpIcon, InviteIcon, VerifiedIcon } from '../components/icons';
 
@@ -61,6 +63,13 @@ export function Home() {
   const [showAll, setShowAll] = useState(false);
   const [yearly, setYearly] = useState(false);
   const [model, setModel] = useState<Model>('subscription');
+  // The "How It Works" explainer, played next to the How it works text.
+  const [howVideo, setHowVideo] = useState<EvergreenVideo | null>(null);
+  useEffect(() => {
+    api<{ videos: EvergreenVideo[] }>('/api/public/evergreen')
+      .then((r) => setHowVideo(r.videos.find((v) => /how it works/i.test(v.title)) ?? null))
+      .catch(() => {});
+  }, []);
   const go = (e: FormEvent) => {
     e.preventDefault();
     const c = code.trim();
@@ -134,6 +143,11 @@ export function Home() {
           <div className="home-section">
             <span className="home-kicker" aria-hidden="true" />
             <h2 className="home-h2">How it works</h2>
+            {howVideo && (
+              <div className="how-video">
+                <VideoFrame src={`/api/public/${howVideo.playlist}`} poster={howVideo.poster && `/api/public/${howVideo.poster}`} />
+              </div>
+            )}
             <ol className="how-list">
               <li><strong>Get verified.</strong> Your practice gets a doctor account with Aurelius Code.</li>
               <li><strong>Pay.</strong> Choose the plan that fits how many patients you see.</li>

@@ -30,6 +30,26 @@ describe('evergreen videos: separate from procedure sets', () => {
   });
 });
 
+describe('evergreen videos: public, for the home page', () => {
+  it('can be listed and played without signing in', async () => {
+    const id = await seedEvergreen('How It Works', order(), 10);
+    const anyone = new Client();
+    const list = (await (await anyone.fetch('/api/public/evergreen')).json()) as any;
+    expect(list.videos.find((v: any) => v.id === id)).toMatchObject({ title: 'How It Works', playlist: `evergreen/${id}/playlist.m3u8` });
+    const pl = await anyone.fetch(`/api/public/evergreen/${id}/playlist.m3u8`);
+    expect(pl.status).toBe(200);
+    expect(await bytes(await anyone.fetch(`/api/public/evergreen/${id}/init.mp4`))).toEqual(INIT_BYTES);
+    expect(await bytes(await anyone.fetch(`/api/public/evergreen/${id}/seg/1.m4s`))).toEqual(segmentBytes(1));
+  });
+
+  it('never serves a procedure video', async () => {
+    const { videoIds } = await prescribe({ videos: 1 });
+    const anyone = new Client();
+    expect((await anyone.fetch(`/api/public/evergreen/${videoIds[0]}/playlist.m3u8`)).status).toBe(404);
+    expect((await anyone.fetch(`/api/public/evergreen/${videoIds[0]}/init.mp4`)).status).toBe(404);
+  });
+});
+
 describe('evergreen videos: doctor portal', () => {
   it('lists them in order and plays them as VOD', async () => {
     const a = order();

@@ -235,7 +235,10 @@ published annual claims or malpractice figures (with sources, in
 `pages/Savings.tsx`) next to what a chosen percentage cut would save and
 our 10% fee, and explain the fee: last full year's losses ÷ 4 as a
 quarterly baseline, each quarter's saving against it, 10% of that. The
-patient's pages say they must receive the certificate before surgery. On the home page the header sits on the hero's blue.
+patient's pages say they must receive the certificate before surgery. On the home page the header sits on the hero's blue, and the "How It
+Works" video plays next to the How it works text. The evergreen videos
+are public for this (`/api/public/evergreen`, `routes/public.ts`);
+procedure videos stay behind a sign-in.
 The doctor's Patients page is the "Invites History" table: patient and
 email, date, procedure, hours left, status ("Not accepted yet" until the
 patient confirms the one-time code, then "Confirmed", "Complete",

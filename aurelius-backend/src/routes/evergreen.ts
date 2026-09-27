@@ -5,10 +5,9 @@ import { serveR2Object } from '../stream';
 import { AppEnv } from './common';
 
 // The evergreen explainer videos ("Brain Science", "How It Works"), shown at
-// the top of both portals. They aren't part of any prescription, so they
-// play as ordinary VOD: no pacing, no heartbeats, nothing on the audit
-// chain or the certificate. Only signed-in doctors and verified patients
-// can fetch them.
+// the top of both portals and on the public home page (routes/public.ts).
+// They aren't part of any prescription, so they play as ordinary VOD: no
+// pacing, no heartbeats, nothing on the audit chain or the certificate.
 
 interface EvergreenVideo {
   id: string;
