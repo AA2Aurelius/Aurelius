@@ -193,9 +193,17 @@ Public:
    placeholder.
 6. ~~Brain Science / How It Works videos.~~ Done (evergreen tables and
    routes, above).
-7. **Signing-key rotation.** Verification uses the current key only;
-   rotating it would make older certificates fail. Before rotating, keep
-   old public keys available by `key_id`.
+7. ~~Signing-key rotation.~~ Done. Every key's public half is recorded in
+   `signing_keys` (migration 0007) whenever it signs, on
+   `/api/verify/public-key`, and by the 15-minute sweep; certificates are
+   checked with the key that signed them (their `key_id`), and
+   `/api/verify/public-key` lists all keys. To replace the key, e.g. with one
+   that has an offline backup: deploy with 0007, open
+   `/api/verify/public-key` and confirm the current `key_id` is in `keys`,
+   then `npm run -s gen-signing-key > aurelius-signing-key.json`, back the
+   file up offline, `npx wrangler secret put SIGNING_KEY_JWK <
+   aurelius-signing-key.json`, delete the file, and check an old
+   certificate at `/verify/<code>`.
 8. **Frontend.** The patient pages and the doctor portal are built
    (`aurelius-web`, below), styled after the Scope of Work wireframes; the
    patient side has been tested on an iPhone. Still to do from the Scope of
@@ -334,7 +342,8 @@ with Cloudflare and the email provider; set `CONTACT_TO`; run migration
 0006; archive the test invites; test the live site end to end on an
 iPhone, an Android phone and a desktop; confirm emails don't land in spam.
 The signing key lives only in the `SIGNING_KEY_JWK` secret, which
-Cloudflare won't show again: never delete or overwrite it (see TODO 7).
+Cloudflare won't show again. Replace it with one you back up offline,
+following TODO 7, and never delete the secret.
 
 Contact messages can also be read with
 `npx wrangler d1 execute aurelius-db --remote --command "SELECT created_at, name, email, organization, topic, message FROM contact_messages ORDER BY created_at DESC"`.

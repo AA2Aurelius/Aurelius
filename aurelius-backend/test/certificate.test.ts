@@ -168,3 +168,44 @@ describe('certificate', () => {
     expect((await s.patient.post(`/api/watch/${s.token}/video/${s.videoIds[0]}/playback`)).status).toBe(410);
   });
 });
+
+describe('replacing the signing key', () => {
+  it('keeps certificates signed with the earlier key verifiable, and signs new ones with the new key', async () => {
+    const before = await certified();
+    const oldKeyId = before.cert.certificate.signature.key_id;
+    const original = env.SIGNING_KEY_JWK;
+    const { privateKey } = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+    const { kty, crv, x, d } = await crypto.subtle.exportKey('jwk', privateKey);
+    env.SIGNING_KEY_JWK = JSON.stringify({ kty, crv, x, d });
+    try {
+      const anyone = new Client();
+      // The certificate signed before the change still checks out, both ways.
+      const code = before.cert.verificationCode;
+      expect(await (await anyone.fetch(`/api/verify/${code}`)).json()).toMatchObject({ status: 'valid' });
+      const posted = (await (await anyone.post('/api/verify', { payload: before.cert.payload, signature: before.cert.signature })).json()) as any;
+      expect(posted).toEqual({ signature_valid: true, matches_record: true });
+
+      // New certificates use the new key; the public key list shows both.
+      const after = await certified();
+      expect(after.cert.certificate.signature.key_id).not.toBe(oldKeyId);
+      expect(await (await anyone.fetch(`/api/verify/${after.cert.verificationCode}`)).json()).toMatchObject({ status: 'valid' });
+      const pk = (await (await anyone.fetch('/api/verify/public-key')).json()) as any;
+      expect(pk.key_id).toBe(after.cert.certificate.signature.key_id);
+      expect(pk.keys.map((k: any) => k.key_id)).toEqual(expect.arrayContaining([oldKeyId, pk.key_id]));
+    } finally {
+      env.SIGNING_KEY_JWK = original;
+    }
+  });
+
+  it('rejects a signature made by a key it has never seen', async () => {
+    const s = await certified();
+    const { privateKey } = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+    const forged = JSON.parse(s.cert.payload);
+    forged.signature.key_id = 'ffffffffffffffff';
+    const payload = JSON.stringify(forged);
+    const sig = new Uint8Array(await crypto.subtle.sign({ name: 'Ed25519' }, privateKey, new TextEncoder().encode(payload)));
+    const b64 = btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const res = (await (await new Client().post('/api/verify', { payload, signature: b64 })).json()) as any;
+    expect(res.signature_valid).toBe(false);
+  });
+});

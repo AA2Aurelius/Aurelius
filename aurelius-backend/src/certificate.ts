@@ -42,16 +42,51 @@ export function signingKeys(env: Env): Promise<SigningKeys> {
   return cachedKeys.keys;
 }
 
+// Records the current key's public half (once), so certificates it signs
+// stay verifiable after the signing key is replaced.
+export async function rememberSigningKey(env: Env): Promise<void> {
+  const keys = await signingKeys(env);
+  await env.DB.prepare(`INSERT OR IGNORE INTO signing_keys (key_id, public_jwk, first_seen_at) VALUES (?, ?, ?)`)
+    .bind(keys.keyId, JSON.stringify(keys.publicJwk), nowIso()).run();
+}
+
+// Every key certificates may have been signed with: the current one and
+// any earlier ones on record, by key_id.
+export async function knownPublicKeys(env: Env): Promise<Array<{ key_id: string; jwk: JsonWebKey; current: boolean }>> {
+  const keys = await signingKeys(env);
+  const { results } = await env.DB.prepare(`SELECT key_id, public_jwk FROM signing_keys ORDER BY first_seen_at`).all<{ key_id: string; public_jwk: string }>();
+  const earlier = results.filter((r) => r.key_id !== keys.keyId).map((r) => ({ key_id: r.key_id, jwk: JSON.parse(r.public_jwk) as JsonWebKey, current: false }));
+  return [...earlier, { key_id: keys.keyId, jwk: keys.publicJwk, current: true }];
+}
+
+async function publicKeyFor(env: Env, keyId: string | undefined): Promise<CryptoKey | null> {
+  const keys = await signingKeys(env);
+  if (!keyId || keyId === keys.keyId) return keys.publicKey;
+  const row = await env.DB.prepare(`SELECT public_jwk FROM signing_keys WHERE key_id = ?`).bind(keyId).first<{ public_jwk: string }>();
+  if (!row) return null;
+  const jwk = JSON.parse(row.public_jwk) as JsonWebKey;
+  return crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: jwk.x }, { name: 'Ed25519' }, false, ['verify']);
+}
+
 async function sign(env: Env, payload: string): Promise<{ signature: string; keyId: string }> {
+  await rememberSigningKey(env);
   const keys = await signingKeys(env);
   const sig = await crypto.subtle.sign({ name: 'Ed25519' }, keys.privateKey, new TextEncoder().encode(payload));
   return { signature: base64url(sig), keyId: keys.keyId };
 }
 
-export async function signatureValid(env: Env, payload: string, signature: string): Promise<boolean> {
-  const keys = await signingKeys(env);
+// Checks the signature with the key that made it: the key_id stored with
+// the certificate, or else the one named inside the payload.
+export async function signatureValid(env: Env, payload: string, signature: string, keyId?: string): Promise<boolean> {
+  if (!keyId) {
+    try {
+      keyId = JSON.parse(payload)?.signature?.key_id;
+    } catch {}
+  }
   try {
-    return await crypto.subtle.verify({ name: 'Ed25519' }, keys.publicKey, fromBase64url(signature), new TextEncoder().encode(payload));
+    const key = await publicKeyFor(env, keyId);
+    if (!key) return false;
+    return await crypto.subtle.verify({ name: 'Ed25519' }, key, fromBase64url(signature), new TextEncoder().encode(payload));
   } catch {
     return false;
   }
@@ -243,7 +278,7 @@ export async function checkCertificate(env: Env, row: CertificateRow): Promise<C
   const problems: string[] = [];
   let payload: CertificatePayload | null = null;
 
-  if (!(await signatureValid(env, row.payload, row.signature))) problems.push('signature does not match');
+  if (!(await signatureValid(env, row.payload, row.signature, row.key_id))) problems.push('signature does not match');
   try {
     payload = JSON.parse(row.payload) as CertificatePayload;
   } catch {
