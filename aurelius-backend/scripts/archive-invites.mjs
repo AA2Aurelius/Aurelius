@@ -25,8 +25,17 @@ const sqlString = (s) => `'${String(s).replace(/'/g, "''")}'`;
 function query(sql) {
   const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, '--json', `--command=${sql}`],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-  return JSON.parse(r.stdout)[0].results;
+  // With --json, wrangler reports errors on stdout, so show it on failure.
+  if (r.status !== 0 || r.error) {
+    console.error(`The database query failed:\n${r.error ? r.error.message : r.stdout}`);
+    process.exit(r.status || 1);
+  }
+  try {
+    return JSON.parse(r.stdout)[0].results;
+  } catch {
+    console.error(`Unexpected answer from wrangler:\n${r.stdout}`);
+    process.exit(1);
+  }
 }
 
 const doctor = query(`SELECT id, name FROM doctors WHERE email = ${sqlString(email)}`)[0];
