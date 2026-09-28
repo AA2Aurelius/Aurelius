@@ -313,6 +313,28 @@ The public Turnstile site key is in `aurelius-web/.env.production`; builds
 in any other mode leave it out, and the widget is skipped (as is the
 server-side check in development).
 
+## Launch checklist
+Done in code: security headers (HSTS; `Cache-Control: no-store` on every
+API answer unless a route sets its own), the contact form (`POST
+/api/public/contact`: Turnstile, 5 per IP per hour, stored in
+`contact_messages`, emailed to `CONTACT_TO` with Reply-To the sender),
+Privacy Policy (`/privacy`) and Terms of Use (`/terms`) pages describing
+what the service does, and `npm run archive-invites -- --email doctor@clinic.com
+--remote` to hide test invites (viewing records and certificates can't be
+deleted, so archiving closes open links and hides them from the portal;
+certificates stay verifiable).
+
+Still for the owner: a lawyer's review of the privacy policy, terms,
+certificate wording and pricing page; HIPAA business associate agreements
+with Cloudflare and the email provider; set `CONTACT_TO`; run migration
+0006; archive the test invites; test the live site end to end on an
+iPhone, an Android phone and a desktop; confirm emails don't land in spam.
+The signing key lives only in the `SIGNING_KEY_JWK` secret, which
+Cloudflare won't show again: never delete or overwrite it (see TODO 7).
+
+Contact messages can also be read with
+`npx wrangler d1 execute aurelius-db --remote --command "SELECT created_at, name, email, organization, topic, message FROM contact_messages ORDER BY created_at DESC"`.
+
 ## Deploy steps
 ```
 npm install
@@ -325,6 +347,7 @@ openssl rand -base64 32 | npx wrangler secret put OTP_SECRET
 npm run -s gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK   # back this key up offline
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY                          # from the Turnstile widget you create
+npx wrangler secret put CONTACT_TO                                    # where contact-form messages are emailed
 npm run deploy                                      # builds aurelius-web, then deploys the Worker
 npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com --remote
 npm run package-video -- --manifest videos.csv --remote        # all videos; see below

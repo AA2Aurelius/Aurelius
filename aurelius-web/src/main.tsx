@@ -4,6 +4,7 @@ import { Wordmark } from './components/Brand';
 import { DoctorApp, OPEN_INVITE } from './doctor/DoctorApp';
 import { navigate } from './doctor/nav';
 import { Home } from './pages/Home';
+import { PrivacyPage, TermsPage } from './pages/Legal';
 import { VerifyPage } from './pages/VerifyPage';
 import { WatchApp } from './patient/WatchApp';
 import './styles.css';
@@ -27,6 +28,7 @@ function TopNav({ doctor }: { doctor: boolean }) {
       <a className="site-link" href="/#how">How it works</a>
       <a className="site-link" href="/#pricing">Pricing</a>
       <a className="site-link" href="/#about">About</a>
+      <a className="site-link" href="/#contact">Contact</a>
       <a className="nav-cta" href="/doctor?invite=1" onClick={invite}>Invite patient</a>
       <a className="nav-btn" href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
       <a className="nav-btn" href="/doctor" onClick={go('/doctor')}>Videos</a>
@@ -40,6 +42,7 @@ function App() {
   const path = location.pathname;
   const watch = /^\/watch\/([^/]+)\/?$/.exec(path);
   const check = /^\/verify\/([^/]+)\/?$/.exec(path);
+  const legal = /^\/(privacy|terms)\/?$/.exec(path)?.[1];
   const doctor = /^\/doctor(\/|$)/.test(path);
   let page;
   let badge = '';
@@ -52,10 +55,11 @@ function App() {
   } else if (check) {
     page = <VerifyPage code={decodeURIComponent(check[1])} />;
     badge = 'Certificate check';
-  } else page = <Home />;
+  } else if (legal) page = legal === 'privacy' ? <PrivacyPage /> : <TermsPage />;
+  else page = <Home />;
   // Doctors and patients get visibly different colors, so it's always clear
   // which side you're looking at.
-  const isHome = !doctor && !watch && !check;
+  const isHome = !doctor && !watch && !check && !legal;
   document.body.className = doctor ? 'theme-doctor' : watch ? 'theme-patient' : 'theme-public';
   return (
     <>
@@ -72,12 +76,14 @@ function App() {
           </div>
         </div>
       </header>
-      <main className={!doctor && !watch && !check ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
+      <main className={isHome ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
       <footer className="site-footer no-print">
         <div className="site-footer-inner">
           <Wordmark small />
           <span>Because everyone can use a little help from time to time</span>
-          <a className="footer-link" href="/doctor">Doctor sign in</a>
+          <span className="footer-links">
+            <a href="/terms">Terms of Use</a> / <a href="/privacy">Privacy Policy</a> / <a className="footer-link" href="/doctor">Doctor sign in</a>
+          </span>
           <span>© {new Date().getFullYear()} Aurelius Code. All rights reserved</span>
         </div>
       </footer>

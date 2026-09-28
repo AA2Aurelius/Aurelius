@@ -22,6 +22,7 @@ export default defineConfig(async () => {
             SIGNING_KEY_JWK: JSON.stringify(jwk),
             RESEND_API_KEY: 'test-resend-key',
             TURNSTILE_SECRET_KEY: 'test-turnstile-secret',
+            CONTACT_TO: 'owner@app.test',
           },
         },
       }),

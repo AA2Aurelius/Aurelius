@@ -114,7 +114,7 @@ doctor.get('/patients', async (c) => {
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.doctor_id = ?
+     WHERE pr.doctor_id = ? AND pr.archived_at IS NULL
        AND NOT EXISTS (SELECT 1 FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id)
      ORDER BY pr.created_at DESC`
   ).bind(c.get('doctor').doctorId).all();

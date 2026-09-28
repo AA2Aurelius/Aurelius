@@ -14,7 +14,8 @@
     "test": "vitest run",
     "package-video": "node scripts/package-video.mjs",
     "build:web": "npm --prefix ../aurelius-web ci && npm --prefix ../aurelius-web run build",
-    "test-prescribe": "node scripts/test-prescribe.mjs"
+    "test-prescribe": "node scripts/test-prescribe.mjs",
+    "archive-invites": "node scripts/archive-invites.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0"

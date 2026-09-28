@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { VideoFrame, type EvergreenVideo } from '../components/PlainPlayer';
+import { ContactForm } from './ContactForm';
 import { FeeMethod, MALPRACTICE_LOSSES, PAYER_LOSSES, SavingsTable } from './Savings';
 import { CardIcon, CheckBoxIcon, GridIcon, HelpIcon, InviteIcon, VerifiedIcon } from '../components/icons';
 
@@ -63,6 +64,7 @@ export function Home() {
   const [showAll, setShowAll] = useState(false);
   const [yearly, setYearly] = useState(false);
   const [model, setModel] = useState<Model>('subscription');
+  const [topic, setTopic] = useState('General question');
   // The "How It Works" explainer, played next to the How it works text.
   const [howVideo, setHowVideo] = useState<EvergreenVideo | null>(null);
   useEffect(() => {
@@ -208,7 +210,7 @@ export function Home() {
                       ${(yearly ? p.month * 12 : p.month).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       <small>/{yearly ? 'yr' : 'mo'}</small>
                     </p>
-                    <a className="button mint small" href="#signup">Sign up</a>
+                    <a className="button mint small" href="#contact" onClick={() => setTopic(`Subscription: ${p.name}`)}>Sign up</a>
                   </article>
                 ))}
               </div>
@@ -222,7 +224,7 @@ export function Home() {
                 <span className="how-icon green" aria-hidden="true"><CardIcon /></span>
                 <p className="big">10%</p>
                 <p className="proc-sub">of what we save payers or insurers</p>
-                <a className="button mint small" href="#signup">Contact us</a>
+                <a className="button mint small" href="#contact" onClick={() => setTopic('Revenue share')}>Contact us</a>
               </div>
               <div className="model-details">
                 <h3>Revenue share</h3>
@@ -239,7 +241,7 @@ export function Home() {
               </div>
             </div>
             <div className="savings-card">
-              <SavingsTable rows={PAYER_LOSSES} lossLabel="Claims paid in a year" caption="What payers and insurers pay out each year, and what a small cut would be worth." />
+              <SavingsTable rows={PAYER_LOSSES} lossLabel="Claims paid in a year" caption="What two of the largest insurers pay for all medical care in a year, shown for scale, and what a small cut would be worth." />
               <FeeMethod kind="claims" />
             </div>
             </div>
@@ -252,7 +254,7 @@ export function Home() {
                 <span className="how-icon purple" aria-hidden="true"><VerifiedIcon /></span>
                 <p className="big">10%</p>
                 <p className="proc-sub">of malpractice savings, billed quarterly</p>
-                <a className="button mint small" href="#signup">Contact us</a>
+                <a className="button mint small" href="#contact" onClick={() => setTopic('Loss prevention mandate')}>Contact us</a>
               </div>
               <div className="model-details">
                 <h3>Loss prevention mandate</h3>
@@ -305,10 +307,16 @@ export function Home() {
         </form>
       </section>
 
+      <section id="contact" className="home-band light">
+        <div className="home-inner">
+          <ContactForm topic={topic} onTopic={setTopic} />
+        </div>
+      </section>
+
       <section id="signup" className="home-band blue signup-band">
         <div className="home-inner signup-inner">
           <h2 className="home-h2">Sign up now and invite patients</h2>
-          <a className="button ghost small" href="/doctor">Doctor sign in</a>
+          <a className="button ghost small" href="#contact" onClick={() => setTopic('Sign up my practice')}>Sign up</a>
         </div>
       </section>
     </div>

@@ -1,14 +1,11 @@
 import { useState } from 'react';
 
-// Published annual figures, for scale. Each is the company's (or the
-// source's) own number for the latest full year; see `source`.
+// Published annual figures, for scale: each company's own number from its
+// latest full-year results (see `source`), confirmed against its reported
+// medical cost ratio.
 export interface LossRow { name: string; what: string; year: string; amount: number; source: string; href: string }
 
 export const PAYER_LOSSES: LossRow[] = [
-  {
-    name: 'Blue Cross Blue Shield companies', what: 'Claims paid, all 33 companies', year: 'per year', amount: 600e9,
-    source: "Becker's Payer Issues", href: 'https://www.beckerspayer.com/payer/100-things-to-know-about-blue-cross-blue-shield/',
-  },
   {
     name: 'UnitedHealth Group', what: 'Medical costs', year: '2025', amount: 313_995e6,
     source: 'UnitedHealth Group 2025 results', href: 'https://www.unitedhealthgroup.com/content/dam/UHG/PDF/investors/2025/unh-reports-2025-results-and-issues-2026-outlook.pdf',
@@ -16,10 +13,6 @@ export const PAYER_LOSSES: LossRow[] = [
   {
     name: 'Elevance Health (largest Blue Cross plan)', what: 'Benefit expense', year: '2025', amount: 148_223e6,
     source: 'Elevance Health 2025 results', href: 'https://www.elevancehealth.com/content/dam/elevance-health/documents/earnings/4Q2025ELVEarningsRelease.pdf',
-  },
-  {
-    name: 'Aflac', what: 'Total benefits and claims', year: '2025', amount: 7_293e6,
-    source: 'Aflac 2025 Form 10-K', href: 'https://www.sec.gov/Archives/edgar/data/4977/000162828026011402/afl-20251231.htm',
   },
 ];
 
