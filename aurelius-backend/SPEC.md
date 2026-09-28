@@ -57,7 +57,12 @@ No billing, no subscriptions.
 ### Routes
 Doctor (session cookie required, except login):
 - `POST /api/doctor/login`, `POST /api/doctor/logout`, `GET /api/doctor/me`
-- `GET /api/doctor/procedures`
+- `GET /api/doctor/procedures` — with video count, total length and first
+  video (for its thumbnail)
+- `GET /api/doctor/procedures/:id/videos` — the procedure's videos in order;
+  `GET /api/doctor/preview/:videoId/playlist.m3u8` (and its chunks) plays
+  one as plain VOD for a doctor's preview. Nothing is logged and no
+  patient's progress is affected.
 - `GET /api/doctor/patients` — the signed-in doctor's patients only,
   cancelled links included (a link replaced by a resend shows as its
   replacement)
@@ -113,7 +118,10 @@ Public:
   Origin are rejected. Accounts are created with `npm run create-doctor`;
   `npm run create-doctor -- --reset --email … --remote` replaces a
   forgotten or exposed password in place, ends that doctor's sessions and
-  clears the sign-in lockout (there is no self-service reset).
+  clears the sign-in lockout (there is no self-service reset);
+  `npm run create-doctor -- --email old@… --new-email new@… --remote`
+  changes a doctor's email (their sign-in and where their reminder emails
+  go), keeping the account and password.
 - **Patient identity:** a 6-digit code emailed to the address the doctor
   entered (10 min expiry, 5 guesses, 60 s resend cooldown, 5 per hour).
   The certificate records this as "verified by one-time code sent to
@@ -185,15 +193,25 @@ Public:
    placeholder.
 6. ~~Brain Science / How It Works videos.~~ Done (evergreen tables and
    routes, above).
-7. **Signing-key rotation.** Verification uses the current key only;
-   rotating it would make older certificates fail. Before rotating, keep
-   old public keys available by `key_id`.
+7. ~~Signing-key rotation.~~ Done. Every key's public half is recorded in
+   `signing_keys` (migration 0007) whenever it signs, on
+   `/api/verify/public-key`, and by the 15-minute sweep; certificates are
+   checked with the key that signed them (their `key_id`), and
+   `/api/verify/public-key` lists all keys. To replace the key, e.g. with one
+   that has an offline backup: deploy with 0007, open
+   `/api/verify/public-key` and confirm the current `key_id` is in `keys`,
+   then `npm run -s gen-signing-key > aurelius-signing-key.json`, back the
+   file up offline, `npx wrangler secret put SIGNING_KEY_JWK <
+   aurelius-signing-key.json`, delete the file, and check an old
+   certificate at `/verify/<code>`.
 8. **Frontend.** The patient pages and the doctor portal are built
-   (`aurelius-web`, below); the patient side has been tested on an iPhone.
-   Still to do: previewing a procedure's own videos in the portal (only
-   the evergreen ones can be previewed; there's no doctor endpoint for
-   procedure video playback yet), and removing the Next.js app at the repo
-   root, which is the old standalone demo. One browser holds one patient
+   (`aurelius-web`, below), styled after the Scope of Work wireframes; the
+   patient side has been tested on an iPhone. Still to do from the Scope of
+   Work: doctors signing up themselves, plans and billing, and a fuller
+   public landing page. Thumbnails are captured in the browser from each
+   video, so iPhones (which won't load video without a tap) show a
+   placeholder; poster images made at upload would fix that. The Next.js
+   app at the repo root is the old standalone demo and can be removed. One browser holds one patient
    session at a time; verifying a second prescription replaces the first.
 
 ## Frontend (`aurelius-web`)
@@ -205,8 +223,43 @@ Turnstile as third-party code, and `Referrer-Policy: strict-origin` so the
 link token in the URL never leaks) are in `aurelius-web/public/_headers`.
 
 Pages: `/watch/{token}` (the patient), `/doctor` (the doctor portal),
-`/verify/{code}` (public certificate check), and `/` (a short landing page
-with a code check and a link to the doctor sign-in).
+`/verify/{code}` (public certificate check), and `/` (the home page: a
+blue hero, the procedure list — Spinal Fusion and Hip Replacement live,
+the rest marked "Coming soon", a list kept in `pages/Home.tsx` — how it
+works, and a certificate check). The header on every page except the
+patient's has Invite patient / Patients / Videos buttons into the doctor
+portal (`/doctor?invite=1` opens the Invite pop-up after sign-in).
+
+Look: after the Scope of Work wireframes — a white header with the
+green-and-gold AURELIUS CODE wordmark, a light page with white cards, the
+site blue for the home page hero and bands, text in Palatino. The home
+page has the hero, procedures, how it works, pricing (the wireframe's
+prices, in `pages/Home.tsx`), founder and mission, a certificate check and
+a sign-up band. Pricing has three tabs: Subscription (the wireframe's
+plans, month or year), Revenue share (10% of what we save payers or
+insurers) and Loss prevention mandate (watching is required for surgery;
+10% of malpractice savings, billed quarterly). The last two show
+published annual claims or malpractice figures (with sources, in
+`pages/Savings.tsx`) next to what a chosen percentage cut would save and
+our 10% fee, and explain the fee: last full year's losses ÷ 4 as a
+quarterly baseline, each quarter's saving against it, 10% of that. The
+patient's pages say they must receive the certificate before surgery.
+When the server confirms a video complete, the patient sees "Video N of M
+complete" with a green check and a "Play next video" button (or "View
+your certificate" after the last); the list beside it turns that video
+green with "✓ Complete" and flags the next one "Up next — ready to play". On the home page the header sits on the hero's blue, and the "How It
+Works" video plays next to the How it works text. The evergreen videos
+are public for this (`/api/public/evergreen`, `routes/public.ts`);
+procedure videos stay behind a sign-in.
+The doctor's Patients page is the "Invites History" table: patient and
+email, date, procedure, hours left, status ("Not accepted yet" until the
+patient confirms the one-time code, then "Confirmed", "Complete",
+"Expired" or "Cancelled"), and a bin button that cancels a live link.
+`GET /api/doctor/patients` includes `patient_email` and `confirmed_at`. The doctor's
+video list follows the "Video List" wireframe (Sort by / Category, each
+card with its procedure tag, patient count and Invite). The patient's
+page has an Info card (which doctor shared the videos, and a yellow
+time-left bar); the portal response includes `doctorName` for it.
 
 The patient flow at `/watch/{token}`:
 1. **Confirm it's you** — Turnstile, then a 6-digit code emailed to the
@@ -215,7 +268,8 @@ The patient flow at `/watch/{token}`:
    videos in order, each locked until the previous one is complete, with
    a check mark once the server confirms completion; time left on the link,
    with a warning under 12 hours.
-3. **Player** — Safari plays HLS natively; other browsers load hls.js
+3. **Player** — the video plays in the main area with the set's videos
+   listed down one side. Safari plays HLS natively; other browsers load hls.js
    (light build) on demand. Controls are Play/Pause, Back 10 s and full
    screen; there's no seek bar. A heartbeat every 5 s reports position,
    playing and `document.visibilityState`. The video pauses when the page
@@ -229,29 +283,70 @@ The patient flow at `/watch/{token}`:
    code with its `/verify` link.
 
 The doctor portal at `/doctor` (sign in with the account made by
-`create-doctor`):
+`create-doctor`) has a sidebar (Videos, Patients, Invite patient, Sign out)
+and an **Invite** pop-up reachable from every page: patient name and email,
+and the procedure, picked from a list with thumbnails; it shows invites
+sent this month.
+- **Videos** (the home page) — every video, grouped by procedure (a
+  procedure is one set, e.g. Spinal Fusion's 6 videos, watched in order and
+  certified together), each group with its own Invite button; then the
+  "Before you begin" videos. Filter buttons show one group, and the
+  Patients panel (hours left on each link) sits alongside.
+- **Procedure page** — a preview player for each of its videos in order,
+  and a panel of the doctor's patients on it with hours left on each link.
 - **Patients** — every prescription the doctor has sent, newest first,
   with a status (not started, in progress, fewer than 12 hours left,
   expired, cancelled, complete) and videos completed; searchable by
   patient or procedure.
-- **New prescription** — patient name, email and procedure. The patient is
-  emailed their link; the link is also shown once, behind "Show the
-  patient's link", with a warning, and shown open if the email failed.
+- After an invite, the patient is emailed their link; it's also shown once
+  in the pop-up, behind "Show the patient's link", with a warning, and
+  shown open if the email failed.
 - **Patient page** — per-video started and completed times, pauses and
   skip attempts; **Send a new link** (optionally to a corrected email; the
   old link stops working and progress starts again) and **Cancel link**
   (with an optional reason for the record). Links between a resent link
   and the one it replaced. Once every video is complete, the certificate,
   with a warning if it fails its integrity check.
-- **Videos** — the procedures and their video counts, and previews of the
-  "Before you begin" videos.
 
 A 401 from the API (30 minutes idle, 12 hours at most) returns the doctor
 to the sign-in form, which keeps the page they were on.
 
+**12-hour reminder.** When a link has less than 12 hours left and the
+videos aren't all done, the reminder sweep emails the patient and the
+doctor (once per link), the doctor portal shows a pulsing banner on every
+page listing those patients with their progress, and the patient's page
+shows a pulsing "Only N hours left" warning.
+
+**Looks.** Doctors and patients get visibly different colors (a deep blue
+header on periwinkle for doctors, teal on mint for patients), set as a
+theme class on `<body>`; the certificate keeps the same design in both.
+
 The public Turnstile site key is in `aurelius-web/.env.production`; builds
 in any other mode leave it out, and the widget is skipped (as is the
 server-side check in development).
+
+## Launch checklist
+Done in code: security headers (HSTS; `Cache-Control: no-store` on every
+API answer unless a route sets its own), the contact form (`POST
+/api/public/contact`: Turnstile, 5 per IP per hour, stored in
+`contact_messages`, emailed to `CONTACT_TO` with Reply-To the sender),
+Privacy Policy (`/privacy`) and Terms of Use (`/terms`) pages describing
+what the service does, and `npm run archive-invites -- --email doctor@clinic.com
+--remote` to hide test invites (viewing records and certificates can't be
+deleted, so archiving closes open links and hides them from the portal;
+certificates stay verifiable).
+
+Still for the owner: a lawyer's review of the privacy policy, terms,
+certificate wording and pricing page; HIPAA business associate agreements
+with Cloudflare and the email provider; set `CONTACT_TO`; run migration
+0006; archive the test invites; test the live site end to end on an
+iPhone, an Android phone and a desktop; confirm emails don't land in spam.
+The signing key lives only in the `SIGNING_KEY_JWK` secret, which
+Cloudflare won't show again. Replace it with one you back up offline,
+following TODO 7, and never delete the secret.
+
+Contact messages can also be read with
+`npx wrangler d1 execute aurelius-db --remote --command "SELECT created_at, name, email, organization, topic, message FROM contact_messages ORDER BY created_at DESC"`.
 
 ## Deploy steps
 ```
@@ -265,6 +360,7 @@ openssl rand -base64 32 | npx wrangler secret put OTP_SECRET
 npm run -s gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK   # back this key up offline
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY                          # from the Turnstile widget you create
+npx wrangler secret put CONTACT_TO                                    # where contact-form messages are emailed
 npm run deploy                                      # builds aurelius-web, then deploys the Worker
 npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com --remote
 npm run package-video -- --manifest videos.csv --remote        # all videos; see below
@@ -285,6 +381,15 @@ off. A stopped run may leave the chunks of the video it was on in R2 with
 nothing pointing at them; they're harmless. Single videos:
 `--file hip-1.mp4 --procedure "Hip Replacement" --title "..." --order 1`,
 or `--evergreen` in place of `--procedure`.
+
+**Still frames (posters).** Each upload also saves one frame of the video
+(30% of the way in, or `--poster-at <seconds>`) as `posters/<videoId>.jpg`
+in R2 and records it in `poster_r2_key` (migration `0005`). The pages show
+it on every video card and in the player before it starts. For videos
+uploaded before this existed, run the same manifest with `--posters`:
+`npm run package-video -- --manifest videos.csv --posters --remote` makes
+and uploads only the frames. Without a frame, the pages grab one in the
+browser instead.
 **Prescribing from the command line.** The doctor portal is the normal
 way; for scripted tests,
 `npm run test-prescribe -- --doctor you@clinic.com --email patient@example.com --name "Test Patient" --procedure "Hip Replacement"`

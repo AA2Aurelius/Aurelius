@@ -103,3 +103,14 @@ describe('patient link leak', () => {
     expect(JSON.stringify(row)).not.toContain(s.token);
   });
 });
+
+describe('response headers', () => {
+  it('keeps patient details out of caches and insists on HTTPS', async () => {
+    const a = await prescribe();
+    const res = await a.doctorClient.fetch('/api/doctor/patients');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Strict-Transport-Security')).toMatch(/max-age=31536000/);
+    const portal = await new Client().fetch(`/api/watch/${a.token}`);
+    expect(portal.headers.get('Cache-Control')).toBe('no-store');
+  });
+});

@@ -3,8 +3,14 @@
 //   npm run gen-signing-key | npx wrangler secret put SIGNING_KEY_JWK
 //
 // The private key goes only to Wrangler's secret store (and .dev.vars for
-// local development). Keep an offline backup: if it's lost, new certificates
-// get a new key and old ones can only be checked against the old public key.
+// local development). To keep an offline backup, write it to a file first:
+//
+//   npm run -s gen-signing-key > aurelius-signing-key.json
+//   npx wrangler secret put SIGNING_KEY_JWK < aurelius-signing-key.json
+//
+// then store the file somewhere safe and delete it from the computer.
+// Replacing the key is safe: every key's public half is kept in the
+// signing_keys table, so earlier certificates still verify (SPEC.md).
 import { webcrypto } from 'node:crypto';
 import { createHash } from 'node:crypto';
 

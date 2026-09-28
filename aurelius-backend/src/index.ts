@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import { logEvent } from './audit';
+import { rememberSigningKey } from './certificate';
 import { sendEmail } from './email';
 import { Env, hoursFromNow, hoursUntil, nowIso } from './lib';
 import type { AppEnv } from './routes/common';
 import { doctor } from './routes/doctor';
 import { patient } from './routes/patient';
 import { verify } from './routes/verify';
+import { publicRoutes } from './routes/public';
 
 // The frontend and this API share one origin (APP_ORIGIN); the API lives
 // under /api so it doesn't collide with frontend pages like /watch/{token}.
@@ -15,6 +17,11 @@ app.use('*', async (c, next) => {
   await next();
   c.header('Referrer-Policy', 'no-referrer');
   c.header('X-Content-Type-Options', 'nosniff');
+  // HTTPS only, for a year, including subdomains.
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // API answers carry patient details: never keep them in any cache unless
+  // a route says otherwise (video chunks set their own).
+  if (!c.res.headers.has('Cache-Control')) c.header('Cache-Control', 'no-store');
 });
 
 // Cross-site request forgery guard for anything that changes state. Session
@@ -34,6 +41,7 @@ app.use('/api/*', async (c, next) => {
 app.route('/api/doctor', doctor);
 app.route('/api/watch', patient);
 app.route('/api/verify', verify);
+app.route('/api/public', publicRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found.' }, 404));
 app.onError((err, c) => {
@@ -103,5 +111,7 @@ export default {
   fetch: app.fetch,
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runReminderSweep(env));
+    // Keeps the current signing key's public half on record (see certificate.ts).
+    ctx.waitUntil(rememberSigningKey(env).catch((err) => console.error('rememberSigningKey', err)));
   },
 } satisfies ExportedHandler<Env>;

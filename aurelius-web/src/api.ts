@@ -37,6 +37,10 @@ export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
 }
 
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
 export function formatHoursLeft(hours: number): string {
   if (hours <= 0) return 'This link has expired';
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} minutes left`;

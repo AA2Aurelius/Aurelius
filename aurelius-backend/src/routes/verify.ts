@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { checkCertificate, normalizeVerificationCode, signatureValid, signingKeys } from '../certificate';
+import { checkCertificate, knownPublicKeys, normalizeVerificationCode, rememberSigningKey, signatureValid, signingKeys } from '../certificate';
 import { clientIp, initials } from '../lib';
 import { overLimit } from '../ratelimit';
 import type { AppEnv } from './common';
@@ -17,9 +17,12 @@ verify.use('*', async (c, next) => {
 });
 
 // The key certificates are signed with, so they can be checked independently.
+// `keys` also lists earlier keys, for certificates signed before the key
+// was last replaced.
 verify.get('/public-key', async (c) => {
+  await rememberSigningKey(c.env);
   const keys = await signingKeys(c.env);
-  return c.json({ algorithm: 'Ed25519', key_id: keys.keyId, jwk: keys.publicJwk });
+  return c.json({ algorithm: 'Ed25519', key_id: keys.keyId, jwk: keys.publicJwk, keys: await knownPublicKeys(c.env) });
 });
 
 verify.get('/:code', async (c) => {

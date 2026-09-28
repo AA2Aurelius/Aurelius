@@ -4,6 +4,7 @@ export interface Email {
   to: string;
   subject: string;
   text: string;
+  replyTo?: string;
 }
 
 // Sends via Resend. Without an API key the message is only printed, and
@@ -12,13 +13,13 @@ export interface Email {
 export async function sendEmail(env: Env, email: Email): Promise<void> {
   if (!env.RESEND_API_KEY) {
     if (env.ENVIRONMENT !== 'development') throw new Error('RESEND_API_KEY is not configured');
-    console.log(`[dev email] to=${email.to} subject=${JSON.stringify(email.subject)}\n${email.text}`);
+    console.log(`[dev email] to=${email.to} subject=${JSON.stringify(email.subject)}${email.replyTo ? ` reply-to=${email.replyTo}` : ''}\n${email.text}`);
     return;
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [email.to], subject: email.subject, text: email.text }),
+    body: JSON.stringify({ from: env.EMAIL_FROM, to: [email.to], subject: email.subject, text: email.text, ...(email.replyTo ? { reply_to: email.replyTo } : {}) }),
   });
   if (!res.ok) throw new Error(`Email send failed: ${res.status} ${await res.text()}`);
 }

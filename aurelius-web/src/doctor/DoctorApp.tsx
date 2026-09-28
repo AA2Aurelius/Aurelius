@@ -1,13 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { ApiError, api } from '../api';
 import { CertificateView, type CertificateResponse } from '../components/CertificateView';
+import { InviteIcon, LogoutIcon, PlayIcon, UsersIcon } from '../components/icons';
+import { ExpiringAlert } from './ExpiringAlert';
+import { InviteModal } from './InviteModal';
+import { InviteContext } from './library';
 import { Login } from './Login';
 import { Link, doctorApi, navigate, setSignedOutHandler, usePath } from './nav';
 import { PatientDetail } from './PatientDetail';
 import { Patients } from './Patients';
-import { Prescribe } from './Prescribe';
+import { ProcedurePage } from './ProcedurePage';
 import { Videos } from './Videos';
+
+// Fired by the header's Invite button.
+export const OPEN_INVITE = 'aurelius:open-invite';
 
 export interface Doctor { id: string; name: string; email: string }
 
@@ -20,6 +27,26 @@ export function DoctorApp() {
   // A 401 only means "session ended" while signed in; after signing out,
   // requests still in flight must not replace the "signed out" message.
   const signedIn = useRef(false);
+  // The Invite pop-up: undefined = closed, '' = open with no procedure chosen.
+  const [inviteFor, setInviteFor] = useState<string | undefined>(undefined);
+  // Bumped after an invite is sent, so the page underneath reloads its lists.
+  const [refresh, setRefresh] = useState(0);
+  const openInvite = useCallback((procedureId?: string) => setInviteFor(procedureId ?? ''), []);
+  const closeInvite = useCallback(() => setInviteFor(undefined), []);
+  const sentInvite = useCallback(() => setRefresh((n) => n + 1), []);
+  useEffect(() => {
+    const open = () => {
+      setInviteFor('');
+      if (!signedIn.current) setNotice('');
+    };
+    addEventListener(OPEN_INVITE, open);
+    // Arriving from the home page's Invite button.
+    if (new URLSearchParams(location.search).has('invite')) {
+      history.replaceState(null, '', location.pathname);
+      open();
+    }
+    return () => removeEventListener(OPEN_INVITE, open);
+  }, []);
   const signIn = (d: Doctor) => {
     signedIn.current = true;
     setDoctor(d);
@@ -42,7 +69,14 @@ export function DoctorApp() {
 
   if (doctor === undefined) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
   if (doctor === null) {
-    return <Login notice={notice} onSignedIn={(d) => { setNotice(''); signIn(d); }} />;
+    // Say where signing in leads, so the header buttons visibly do something
+    // before sign-in.
+    const where = inviteFor !== undefined
+      ? 'Sign in to invite a patient.'
+      : path.startsWith('/doctor/patients')
+        ? 'Sign in to see your patients.'
+        : 'Sign in to see your videos.';
+    return <Login notice={notice} intent={where} onSignedIn={(d) => { setNotice(''); signIn(d); }} />;
   }
 
   const signOut = async () => {
@@ -60,9 +94,11 @@ export function DoctorApp() {
 
   const detail = /^\/doctor\/patients\/([^/]+)\/?$/.exec(path);
   const cert = /^\/doctor\/patients\/([^/]+)\/certificate\/?$/.exec(path);
+  const procedure = /^\/doctor\/procedures\/([^/]+)\/?$/.exec(path);
+  const onPatients = path.startsWith('/doctor/patients');
   let page;
-  if (path === '/doctor/new') page = <Prescribe />;
-  else if (path === '/doctor/videos') page = <Videos />;
+  if (path === '/doctor/patients' || path === '/doctor/patients/') page = <Patients key={refresh} />;
+  else if (procedure) page = <ProcedurePage key={`${procedure[1]}-${refresh}`} id={decodeURIComponent(procedure[1])} />;
   else if (cert) {
     const id = decodeURIComponent(cert[1]);
     page = (
@@ -74,25 +110,31 @@ export function DoctorApp() {
       />
     );
   } else if (detail) page = <PatientDetail key={detail[1]} id={decodeURIComponent(detail[1])} />;
-  else page = <Patients />;
+  else page = <Videos key={refresh} />;
 
-  const tab = (to: string, label: string, active: boolean) => (
-    <Link to={to} className={`tab ${active ? 'active' : ''}`}>{label}</Link>
-  );
   return (
-    <div className="stack-lg">
-      <nav className="doctor-nav no-print" aria-label="Doctor portal">
-        <div className="tabs">
-          {tab('/doctor', 'Patients', !['/doctor/new', '/doctor/videos'].includes(path))}
-          {tab('/doctor/new', 'New prescription', path === '/doctor/new')}
-          {tab('/doctor/videos', 'Videos', path === '/doctor/videos')}
+    <InviteContext.Provider value={openInvite}>
+      <div className="doc-layout">
+        <nav className="sidebar no-print" aria-label="Doctor portal">
+          <Link to="/doctor" className={`nav-item ${!onPatients ? 'active' : ''}`}><PlayIcon /> Videos</Link>
+          <Link to="/doctor/patients" className={`nav-item ${onPatients ? 'active' : ''}`}><UsersIcon /> Patients</Link>
+          <button className="nav-item nav-invite" onClick={() => openInvite()}><InviteIcon /> Invite patient</button>
+          <div className="sidebar-spacer" />
+          <span className="sidebar-user">{doctor.name}</span>
+          <button className="nav-item" onClick={signOut}><LogoutIcon /> Sign out</button>
+          <div className="help-card">
+            <strong>NEED HELP?</strong>
+            <p>A patient can't open their link? Open them under Patients and choose Send a new link.</p>
+          </div>
+        </nav>
+        <div className="doc-main stack-lg">
+          <ExpiringAlert refresh={refresh} />
+          {page}
         </div>
-        <div className="signed-in">
-          <span className="muted">{doctor.name}</span>
-          <button className="link-button" onClick={signOut}>Sign out</button>
-        </div>
-      </nav>
-      {page}
-    </div>
+      </div>
+      {inviteFor !== undefined && (
+        <InviteModal initialProcedureId={inviteFor || undefined} onClose={closeInvite} onSent={sentInvite} />
+      )}
+    </InviteContext.Provider>
   );
 }

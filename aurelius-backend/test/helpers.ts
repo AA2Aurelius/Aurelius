@@ -49,7 +49,7 @@ export class Client {
 
 // ----------------------------------------------------------------- email
 
-export interface SentEmail { to: string; subject: string; text: string }
+export interface SentEmail { to: string; subject: string; text: string; replyTo?: string }
 
 export const TURNSTILE_OK = 'turnstile-ok';
 
@@ -63,7 +63,7 @@ export function captureEmails() {
     const url = typeof input === 'string' ? input : input.url;
     if (url.startsWith('https://api.resend.com/')) {
       const body = JSON.parse(init.body);
-      sent.push({ to: body.to[0], subject: body.subject, text: body.text });
+      sent.push({ to: body.to[0], subject: body.subject, text: body.text, replyTo: body.reply_to });
       return new Response(JSON.stringify({ id: uuid() }), { status: 200 });
     }
     if (url === 'https://challenges.cloudflare.com/turnstile/v0/siteverify') {

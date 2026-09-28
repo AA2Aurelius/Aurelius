@@ -7,7 +7,7 @@ import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
 import { hitRateLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
 import { AppEnv, Prescription, readJson, requireDoctor } from './common';
-import { registerEvergreenRoutes } from './evergreen';
+import { registerEvergreenRoutes, registerPreviewRoutes } from './evergreen';
 
 export const doctor = new Hono<AppEnv>();
 
@@ -67,15 +67,36 @@ doctor.get('/me', (c) => {
 // server-side once the library grows past a page or two.
 doctor.get('/procedures', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT p.id, p.name, COUNT(v.id) AS video_count
+    `SELECT p.id, p.name, COUNT(v.id) AS video_count, COALESCE(SUM(v.duration_seconds), 0) AS total_seconds,
+            (SELECT id FROM videos fv WHERE fv.procedure_id = p.id ORDER BY fv.order_index LIMIT 1) AS first_video_id,
+            (SELECT poster_r2_key IS NOT NULL FROM videos fv WHERE fv.procedure_id = p.id ORDER BY fv.order_index LIMIT 1) AS first_video_has_poster
      FROM procedures p LEFT JOIN videos v ON v.procedure_id = p.id
      GROUP BY p.id ORDER BY p.name`
   ).all();
   return c.json(results);
 });
 
-// The evergreen explainer videos (GET /api/doctor/evergreen and playlists).
+// One procedure's videos, in order, each with a preview playlist.
+doctor.get('/procedures/:id/videos', async (c) => {
+  const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(c.req.param('id')).first<{ id: string; name: string }>();
+  if (!procedure) return c.json({ error: 'Not found.' }, 404);
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, title, order_index, duration_seconds, poster_r2_key FROM videos WHERE procedure_id = ? ORDER BY order_index`
+  ).bind(procedure.id).all<{ id: string; title: string; order_index: number; duration_seconds: number; poster_r2_key: string | null }>();
+  return c.json({
+    procedure,
+    videos: results.map((v) => ({
+      id: v.id, title: v.title, order: v.order_index, durationSeconds: v.duration_seconds,
+      playlist: `preview/${v.id}/playlist.m3u8`,
+      poster: v.poster_r2_key ? `preview/${v.id}/poster.jpg` : null,
+    })),
+  });
+});
+
+// The evergreen explainer videos (GET /api/doctor/evergreen and playlists),
+// and previews of procedure videos (GET /api/doctor/preview/:videoId/...).
 registerEvergreenRoutes(doctor, '/evergreen');
+registerPreviewRoutes(doctor, '/preview');
 
 // -------------------------------------------------------------- patients
 
@@ -84,15 +105,16 @@ registerEvergreenRoutes(doctor, '/evergreen');
 // tokens are never returned here -- only their hashes are stored.
 doctor.get('/patients', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
-            proc.name AS procedure_name,
+    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
+            pr.procedure_id, proc.name AS procedure_name,
+            (SELECT MIN(ps.created_at) FROM patient_sessions ps WHERE ps.prescription_id = pr.id) AS confirmed_at,
             (SELECT COUNT(*) FROM video_progress vp
                WHERE vp.prescription_id = pr.id AND vp.completed_at IS NOT NULL) AS videos_done,
             (SELECT COUNT(*) FROM video_progress vp WHERE vp.prescription_id = pr.id) AS videos_total,
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.doctor_id = ?
+     WHERE pr.doctor_id = ? AND pr.archived_at IS NULL
        AND NOT EXISTS (SELECT 1 FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id)
      ORDER BY pr.created_at DESC`
   ).bind(c.get('doctor').doctorId).all();

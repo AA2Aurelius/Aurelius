@@ -10,14 +10,20 @@
 //   npm run package-video -- --manifest videos.csv [--remote]
 //
 // Other options: --ffmpeg /path/to/ffmpeg, --concurrency N (parallel chunk
-// uploads, default 6).
+// uploads, default 6), --poster-at SECONDS (where the still frame is taken;
+// default 30% of the way in).
+//
+// Still frames for videos already uploaded (same manifest; nothing is
+// re-encoded, only a frame is taken and uploaded for each):
+//   npm run package-video -- --manifest videos.csv --posters [--remote]
 //
 // For each video:
 // 1. ffmpeg re-encodes it into HLS with fMP4 chunks of 4 seconds (a keyframe
 //    forced every 4 s, so every chunk starts cleanly).
 // 2. The init chunk and every media chunk are uploaded to R2 under
 //    videos/<video id>/.
-// 3. The procedure (created if no procedure has that name yet), the video
+// 3. A still frame is saved to R2 as posters/<video id>.jpg, for its card.
+// 4. The procedure (created if no procedure has that name yet), the video
 //    and its chunk list are inserted into D1.
 // Targets the local dev database/bucket by default, or production with --remote.
 // R2 uploads happen before the database insert, so the database never
@@ -171,6 +177,34 @@ function d1Query(target, command) {
   return parsed.flatMap((p) => p.results ?? []);
 }
 
+// ---------------------------------------------------------- still frame
+
+// Where to take the still frame: --poster-at, or 30% of the way in (past any
+// opening titles), read with ffprobe; 3 s if the length can't be read.
+function posterSeconds(ffmpeg, file) {
+  const at = arg('poster-at');
+  if (at !== undefined) {
+    const n = Number(at);
+    if (!Number.isFinite(n) || n < 0) fail('--poster-at must be a number of seconds.');
+    return n;
+  }
+  const ffprobe = ffmpeg.replace(/ffmpeg(\.exe)?$/, 'ffprobe$1');
+  const r = spawnSync(ffprobe, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file], { encoding: 'utf8' });
+  const d = Number((r.stdout ?? '').trim());
+  return Number.isFinite(d) && d > 0 ? Math.max(0, Math.min(d * 0.3, d - 0.5)) : 3;
+}
+
+function makePoster(ffmpeg, file, out) {
+  run(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-y', '-ss', posterSeconds(ffmpeg, file).toFixed(2), '-i', file,
+    '-frames:v', '1', '-vf', "scale='min(1280,iw)':-2", '-q:v', '3', out,
+  ]);
+  if (!existsSync(out)) fail(`ffmpeg made no still frame for ${file}`);
+}
+
+const putObject = (key, path, type, target) =>
+  runAsync(wrangler[0], [...wrangler.slice(1), 'r2', 'object', 'put', `${BUCKET}/${key}`, `--file=${path}`, `--content-type=${type}`, target]);
+
 // ------------------------------------------------------------ one video
 
 async function packageOne(v, { target, ffmpeg, concurrency }) {
@@ -210,8 +244,7 @@ async function packageOne(v, { target, ffmpeg, concurrency }) {
     const videoId = randomUUID();
     const prefix = `videos/${videoId}`;
     const initKey = `${prefix}/init.mp4`;
-    const put = (key, path, type) =>
-      runAsync(wrangler[0], [...wrangler.slice(1), 'r2', 'object', 'put', `${BUCKET}/${key}`, `--file=${path}`, `--content-type=${type}`, target]);
+    const put = (key, path, type) => putObject(key, path, type, target);
     console.log(`  Uploading ${segments.length} chunks (${(totalMs / 1000).toFixed(1)}s) to R2 (${target.slice(2)})...`);
     await put(initKey, join(work, 'init.mp4'), 'video/mp4');
     let done = 0;
@@ -222,7 +255,12 @@ async function packageOne(v, { target, ffmpeg, concurrency }) {
     });
     process.stdout.write('\n');
 
-    // ---- 3. database ----
+    // ---- 3. still frame ----
+    const posterKey = `posters/${videoId}.jpg`;
+    makePoster(ffmpeg, v.file, join(work, 'poster.jpg'));
+    await put(posterKey, join(work, 'poster.jpg'), 'image/jpeg');
+
+    // ---- 4. database ----
     const now = new Date().toISOString();
     const statements = [];
     const seconds = Math.max(1, Math.round(totalMs / 1000));
@@ -232,13 +270,13 @@ async function packageOne(v, { target, ffmpeg, concurrency }) {
         `INSERT INTO procedures (id, name, created_at) SELECT ${sql(randomUUID())}, ${sql(v.procedure)}, ${sql(now)}
            WHERE NOT EXISTS (SELECT 1 FROM procedures WHERE name = ${sql(v.procedure)});`,
         // r2_key predates chunked playback; it now points at the init chunk.
-        `INSERT INTO videos (id, procedure_id, title, order_index, r2_key, duration_seconds, created_at, hls_init_r2_key)
-           VALUES (${sql(videoId)}, ${procRef}, ${sql(v.title)}, ${v.order}, ${sql(initKey)}, ${seconds}, ${sql(now)}, ${sql(initKey)});`,
+        `INSERT INTO videos (id, procedure_id, title, order_index, r2_key, duration_seconds, created_at, hls_init_r2_key, poster_r2_key)
+           VALUES (${sql(videoId)}, ${procRef}, ${sql(v.title)}, ${v.order}, ${sql(initKey)}, ${seconds}, ${sql(now)}, ${sql(initKey)}, ${sql(posterKey)});`,
       );
     } else {
       statements.push(
-        `INSERT INTO evergreen_videos (id, title, order_index, duration_seconds, hls_init_r2_key, created_at)
-           VALUES (${sql(videoId)}, ${sql(v.title)}, ${v.order}, ${seconds}, ${sql(initKey)}, ${sql(now)});`,
+        `INSERT INTO evergreen_videos (id, title, order_index, duration_seconds, hls_init_r2_key, created_at, poster_r2_key)
+           VALUES (${sql(videoId)}, ${sql(v.title)}, ${v.order}, ${seconds}, ${sql(initKey)}, ${sql(now)}, ${sql(posterKey)});`,
       );
     }
     const segmentTable = v.procedure ? 'video_segments' : 'evergreen_segments';
@@ -253,6 +291,47 @@ async function packageOne(v, { target, ffmpeg, concurrency }) {
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
+}
+
+// --------------------------------------------- frames for existing videos
+
+// --posters: take a still frame from each listed video that's already
+// uploaded (matched by procedure, order and title), upload it and record it.
+// Nothing is re-encoded; re-running replaces the frames.
+async function postersOnly(videos, { target, ffmpeg }) {
+  console.log(`Matching the videos to what's in D1 (${target.slice(2)})...`);
+  const rows = d1Query(target,
+    'SELECT v.id, p.name AS procedure, v.order_index, v.title FROM videos v JOIN procedures p ON p.id = v.procedure_id; '
+    + 'SELECT id, NULL AS procedure, order_index, title FROM evergreen_videos');
+  const byslot = new Map(rows.map((r) => [slot(r.procedure, r.order_index), r]));
+  const work = mkdtempSync(join(tmpdir(), 'aurelius-posters-'));
+  const updates = [];
+  const skipped = [];
+  try {
+    for (const [i, v] of videos.entries()) {
+      const row = byslot.get(slot(v.procedure, v.order));
+      if (!row || row.title !== v.title) {
+        skipped.push(`${label(v)}: ${row ? `that position is "${row.title}"` : 'not uploaded yet'}`);
+        continue;
+      }
+      console.log(`[${i + 1}/${videos.length}] ${label(v)}`);
+      const out = join(work, `${row.id}.jpg`);
+      makePoster(ffmpeg, v.file, out);
+      const key = `posters/${row.id}.jpg`;
+      await putObject(key, out, 'image/jpeg', target);
+      updates.push(`UPDATE ${v.procedure ? 'videos' : 'evergreen_videos'} SET poster_r2_key = ${sql(key)} WHERE id = ${sql(row.id)};`);
+    }
+    if (updates.length) {
+      const sqlFile = join(work, 'posters.sql');
+      writeFileSync(sqlFile, updates.join('\n') + '\n');
+      console.log('Recording the frames in D1...');
+      run(wrangler[0], [...wrangler.slice(1), 'd1', 'execute', DATABASE, target, `--file=${sqlFile}`, ...(target === '--remote' ? ['--yes'] : [])], { quiet: true });
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+  console.log(`\nStill frames added for ${updates.length} video${updates.length === 1 ? '' : 's'}.`);
+  if (skipped.length) console.log(`Skipped:\n  ${skipped.join('\n  ')}`);
 }
 
 // ------------------------------------------------------------------ main
@@ -283,6 +362,8 @@ async function main() {
 
   const probe = spawnSync(ffmpeg, ['-version'], { stdio: 'ignore' });
   if (probe.error || probe.status !== 0) fail(`ffmpeg not found (tried "${ffmpeg}"). Install it (on a Mac: brew install ffmpeg) or pass --ffmpeg /path/to/ffmpeg.`);
+
+  if (process.argv.includes('--posters')) return postersOnly(videos, { target, ffmpeg });
 
   // What's already there, so a re-run skips finished videos.
   console.log(`Checking what's already in D1 (${target.slice(2)})...`);

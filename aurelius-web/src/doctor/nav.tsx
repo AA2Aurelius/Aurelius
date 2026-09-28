@@ -36,11 +36,12 @@ export function usePath(): string {
   return path;
 }
 
-export function Link({ to, className, children }: { to: string; className?: string; children: ReactNode }) {
+export function Link({ to, className, children, onNavigate }: { to: string; className?: string; children: ReactNode; onNavigate?: () => void }) {
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     // Let the browser handle new-tab clicks.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
+    onNavigate?.();
     navigate(to);
   };
   return <a href={to} className={className} onClick={onClick}>{children}</a>;

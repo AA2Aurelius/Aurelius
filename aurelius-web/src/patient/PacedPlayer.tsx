@@ -20,6 +20,7 @@ export interface PrescribedVideo {
   title: string;
   order_index: number;
   duration_seconds: number;
+  poster?: string | null;
 }
 
 interface CheckInfo { id: string; prompt: string; expiresAt: string }
@@ -43,15 +44,27 @@ type Phase = 'starting' | 'ready' | 'complete' | 'error';
 // is treated as a skip attempt.
 const SKIP_TOLERANCE_S = 2;
 
-export function PacedPlayer({ token, video, onDone, onBack }: {
+export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone, onNext, onCertificate, onBack }: {
   token: string;
   video: PrescribedVideo;
-  onDone: () => void;
+  total: number;              // videos in the set
+  nextTitle?: string;         // the video that unlocks when this one is done
+  onComplete: () => void;     // the server confirmed this video is done
+  onDone: () => void;         // back to the list
+  onNext: () => void;         // play the next video
+  onCertificate: () => void;  // after the last video
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>('starting');
+  // Refresh the list (green check, next video unlocked) as soon as the
+  // server confirms completion, behind the "complete" screen.
+  const completeRef = useRef(onComplete);
+  completeRef.current = onComplete;
+  useEffect(() => {
+    if (phase === 'complete') completeRef.current();
+  }, [phase]);
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
@@ -61,6 +74,8 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
   const [awayPaused, setAwayPaused] = useState(false);
   const [connectionTrouble, setConnectionTrouble] = useState(false);
   const [skipNotice, setSkipNotice] = useState(false);
+  const [skipsBlocked, setSkipsBlocked] = useState(0);
+  const [blockedFlash, setBlockedFlash] = useState(false);
 
   const base = `/api/watch/${encodeURIComponent(token)}`;
   const stateRef = useRef<PlaybackState | null>(null);
@@ -197,6 +212,8 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
       const attempted = v.currentTime;
       v.currentTime = maxReached.current;
       setSkipNotice(true);
+      setSkipsBlocked((n) => n + 1);
+      setBlockedFlash(true);
       const now = Date.now();
       if (now - lastSkipReport.current > 3000) {
         lastSkipReport.current = now;
@@ -300,13 +317,20 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
 
   return (
     <div className="player-page">
-      <button className="link-button" onClick={onBack}>← All videos</button>
+      <button className="link-button" onClick={onBack}>✕ Close video</button>
       <h1 className="player-title">
         <span className="muted">Video {video.order_index}.</span> {video.title}
       </h1>
 
       <div className="player-shell" ref={shellRef}>
-        <video ref={videoRef} playsInline preload="auto" className="player-video" onClick={() => (playing ? pause() : play())} />
+        <video
+          ref={videoRef}
+          playsInline
+          preload="auto"
+          className="player-video"
+          poster={video.poster ? `${base}/${video.poster}` : undefined}
+          onClick={() => (playing ? pause() : play())}
+        />
 
         {phase === 'starting' && <div className="overlay"><div className="spinner" aria-label="Loading" /></div>}
         {phase === 'ready' && !playing && !check && !awayPaused && (
@@ -334,21 +358,47 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
           </div>
         )}
         {phase === 'complete' && (
-          <div className="overlay modal">
-            <div className="overlay-card">
+          <div className="overlay modal" role="dialog" aria-modal="true" aria-labelledby="done-title">
+            <div className="overlay-card done-card">
               <p className="done-mark" aria-hidden="true">✓</p>
-              <p><strong>Video complete.</strong></p>
-              <button className="button" onClick={onDone}>Continue</button>
+              <p id="done-title" className="done-title">Video {video.order_index} of {total} complete</p>
+              <p className="done-sub">{video.title}</p>
+              {nextTitle ? (
+                <>
+                  <p className="done-next">
+                    <span className="done-next-label">Up next, now unlocked</span>
+                    <strong>{nextTitle}</strong>
+                  </p>
+                  <button className="button" onClick={onNext} autoFocus>▶ Play next video</button>
+                  <button className="link-button" onClick={onDone}>Back to your videos</button>
+                </>
+              ) : (
+                <>
+                  <p className="done-next"><strong>That was the last video. Your certificate is ready.</strong></p>
+                  <button className="button" onClick={onCertificate} autoFocus>View your certificate</button>
+                  <button className="link-button" onClick={onDone}>Back to your videos</button>
+                </>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      <div className="progress-row">
-        <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label="Progress">
-          <div className="progress-fill" style={{ width: `${pct}%` }} />
-        </div>
+      <div className="progress-meta">
         <span className="time">{formatDuration(position)} / {formatDuration(totalS)}</span>
+        <span className="lock-label">🔒 Locked — no skipping</span>
+      </div>
+      <div
+        className={`progress ${blockedFlash ? 'blocked' : ''}`}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        aria-label="Progress"
+        onAnimationEnd={() => setBlockedFlash(false)}
+      >
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        <span className="progress-handle" style={{ left: `${pct}%` }} aria-hidden="true" />
       </div>
       <div className="controls">
         <button className="button" onClick={() => (playing ? pause() : play())} disabled={phase !== 'ready' || !!check}>
@@ -358,9 +408,17 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
         {canFullscreen && <button className="button secondary" onClick={fullscreen}>Full screen</button>}
       </div>
 
-      {skipNotice && <p className="note">Skipping ahead isn't available. The video continues from where you were.</p>}
+      {skipNotice && (
+        <div className="stack">
+          <p className="note">Skipping ahead isn't available. The video continues from where you were.</p>
+          <span className="skips-blocked">Skips blocked: {skipsBlocked}</span>
+        </div>
+      )}
       {connectionTrouble && <p className="note">Having trouble reaching Aurelius. Retrying…</p>}
       {phase === 'error' && <p className="error">{error}</p>}
+      <p className="cert-required" role="note">
+        <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video.
+      </p>
       <p className="hint">
         Watch the whole video to continue. It pauses if you switch away, and you'll be asked now and then to confirm you're still watching.
       </p>

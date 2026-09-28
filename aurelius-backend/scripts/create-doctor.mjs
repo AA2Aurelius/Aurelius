@@ -3,6 +3,7 @@
 //
 //   npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]
 //   npm run create-doctor -- --reset --email jane@clinic.com [--remote]
+//   npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]
 //
 // Prompts for the password (not echoed), hashes it the same way the Worker
 // does (PBKDF2-SHA256, 100,000 iterations), and writes it with
@@ -12,6 +13,10 @@
 // --reset keeps the account (and so its link to every prescription and
 // audit record) and only replaces the password. It also signs the doctor out
 // of every open session and clears the failed-sign-in lockout for the email.
+//
+// --new-email keeps the account and password and changes the email, which is
+// both the sign-in name and where the doctor's reminder emails go. The
+// doctor is signed out and signs back in with the new email.
 import { spawnSync } from 'node:child_process';
 import { pbkdf2Sync, randomBytes, randomUUID } from 'node:crypto';
 import { unlinkSync, writeFileSync } from 'node:fs';
@@ -49,30 +54,69 @@ const sqlString = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const name = arg('name');
 const email = arg('email')?.trim().toLowerCase();
 const reset = process.argv.includes('--reset');
+const newEmail = arg('new-email')?.trim().toLowerCase();
 const target = process.argv.includes('--remote') ? '--remote' : '--local';
-if ((!reset && !name) || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+const isEmail = (e) => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+if ((!reset && !newEmail && !name) || !isEmail(email) || (newEmail !== undefined && !isEmail(newEmail))) {
   console.error('Usage: npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]');
   console.error('   or: npm run create-doctor -- --reset --email jane@clinic.com [--remote]');
+  console.error('   or: npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]');
   process.exit(1);
 }
 
-if (reset) {
-  // Fail before asking for a password if there's no such account.
-  const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, '--json',
-    `--command=SELECT name FROM doctors WHERE email = ${sqlString(email)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-  let rows = [];
+function run(sql) {
+  const file = '.create-doctor.sql';
+  writeFileSync(file, sql, { mode: 0o600 });
   try {
-    rows = JSON.parse(r.stdout.slice(r.stdout.indexOf('['))).flatMap((x) => x.results ?? []);
+    const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, `--file=${file}`], { stdio: 'inherit' });
+    if (r.status !== 0) process.exit(r.status ?? 1);
+  } finally {
+    unlinkSync(file);
+  }
+}
+
+function findDoctor(address) {
+  const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, '--json',
+    `--command=SELECT name FROM doctors WHERE email = ${sqlString(address)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+  try {
+    return JSON.parse(r.stdout.slice(r.stdout.indexOf('['))).flatMap((x) => x.results ?? [])[0] ?? null;
   } catch {
     console.error(`Unexpected output from wrangler:\n${r.stdout}`);
     process.exit(1);
   }
-  if (rows.length === 0) {
-    console.error(`No doctor account with the email ${email}${target === '--remote' ? '' : ' in the local database (add --remote for the live one)'}.`);
+}
+
+const where = target === '--remote' ? '' : ' in the local database (add --remote for the live one)';
+
+if (reset || newEmail) {
+  // Fail before asking for anything if there's no such account.
+  const doc = findDoctor(email);
+  if (!doc) {
+    console.error(`No doctor account with the email ${email}${where}.`);
     process.exit(1);
   }
-  console.log(`Resetting the password for ${rows[0].name} <${email}>.`);
+  if (newEmail) {
+    if (newEmail === email) {
+      console.error('The new email is the same as the current one.');
+      process.exit(1);
+    }
+    if (findDoctor(newEmail)) {
+      console.error(`Another doctor account already uses ${newEmail}${where}.`);
+      process.exit(1);
+    }
+    rl.close();
+    const now = new Date().toISOString();
+    run(
+      `UPDATE doctor_sessions SET revoked_at = ${sqlString(now)} WHERE revoked_at IS NULL ` +
+      `AND doctor_id = (SELECT id FROM doctors WHERE email = ${sqlString(email)});\n` +
+      `UPDATE doctors SET email = ${sqlString(newEmail)} WHERE email = ${sqlString(email)};\n` +
+      `DELETE FROM rate_limits WHERE key IN (${sqlString(`login:email:${email}`)}, ${sqlString(`login:email:${newEmail}`)});\n`
+    );
+    console.log(`${doc.name}'s email is now ${newEmail}. Sign in with it (same password); reminder emails go there too.`);
+    process.exit(0);
+  }
+  console.log(`Resetting the password for ${doc.name} <${email}>.`);
 }
 
 const password = await promptHidden(`${reset ? 'New password' : 'Password'} (min 12 characters): `);
@@ -100,12 +144,5 @@ const sql = reset
   : `INSERT INTO doctors (id, name, email, password_hash, created_at) VALUES (` +
     `${sqlString(randomUUID())}, ${sqlString(name)}, ${sqlString(email)}, ${sqlString(passwordHash)}, ${sqlString(now)});\n`;
 
-const file = '.create-doctor.sql';
-writeFileSync(file, sql, { mode: 0o600 });
-try {
-  const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, `--file=${file}`], { stdio: 'inherit' });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-  console.log(reset ? `Password reset for ${email}. Any signed-in sessions were ended.` : `Created doctor ${email}.`);
-} finally {
-  unlinkSync(file);
-}
+run(sql);
+console.log(reset ? `Password reset for ${email}. Any signed-in sessions were ended.` : `Created doctor ${email}.`);

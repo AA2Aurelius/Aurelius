@@ -104,6 +104,28 @@ describe('resend', () => {
   });
 });
 
+describe('invite history', () => {
+  it('shows the email and when the patient confirmed it was them', async () => {
+    const s = await prescribe();
+    const before = ((await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[]).find((r) => r.id === s.prescriptionId);
+    expect(before).toMatchObject({ patient_email: s.patientEmail, confirmed_at: null });
+    await verifiedPatient(s.token, s.patientEmail);
+    const after = ((await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[]).find((r) => r.id === s.prescriptionId);
+    expect(after.confirmed_at).toMatch(/Z$/);
+  });
+});
+
+describe('archived invites', () => {
+  it('are hidden from the doctor, but their certificate records stay', async () => {
+    const s = await prescribe();
+    await env.DB.prepare(`UPDATE prescriptions SET archived_at = ?, revoked_at = ?, revoked_reason = 'archived' WHERE id = ?`)
+      .bind(new Date().toISOString(), new Date().toISOString(), s.prescriptionId).run();
+    const list = (await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[];
+    expect(list.find((r) => r.id === s.prescriptionId)).toBeUndefined();
+    expect((await new Client().fetch(`/api/watch/${s.token}`)).status).toBe(410);
+  });
+});
+
 describe('cancel', () => {
   it('revokes the link and ends verified sessions, and logs who did it and why', async () => {
     const s = await prescribe();
