@@ -75,7 +75,7 @@ export function useThumbnail(src: string | null): string | null {
   return url;
 }
 
-export function Thumb({ src, poster, small, label, badge, onClick }: { src: string | null; poster?: string | null; small?: boolean; label?: string; badge?: string; onClick?: () => void }) {
+export function Thumb({ src, poster, small, label, badge, badgeTone, done, onClick }: { src: string | null; poster?: string | null; small?: boolean; label?: string; badge?: string; badgeTone?: 'done' | 'next' | 'locked'; done?: boolean; onClick?: () => void }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const usePoster = !!poster && !posterFailed;
   const captured = useThumbnail(usePoster ? null : src);
@@ -84,8 +84,12 @@ export function Thumb({ src, poster, small, label, badge, onClick }: { src: stri
     <>
       {usePoster && <img src={poster!} alt="" onError={() => setPosterFailed(true)} />}
       {url && <img src={url} alt="" />}
-      <span className="thumb-play"><span aria-hidden="true">▶</span></span>
-      {badge && <span className="thumb-badge" aria-hidden="true">{badge}</span>}
+      {done ? (
+        <span className="thumb-done"><span aria-hidden="true">✓</span></span>
+      ) : (
+        <span className="thumb-play"><span aria-hidden="true">▶</span></span>
+      )}
+      {badge && <span className={`thumb-badge ${badgeTone ?? ''}`} aria-hidden="true">{badge}</span>}
     </>
   );
   const cls = `thumb ${small ? 'small' : ''}`;

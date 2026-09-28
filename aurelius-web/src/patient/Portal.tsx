@@ -145,22 +145,41 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
           <ol className="video-list">
             {data.videos.map((v) => {
               const now = playingId === v.id;
+              const isNext = next?.id === v.id;
               return (
-                <li key={v.id} className={`video-row ${v.complete ? 'complete' : ''} ${!v.unlocked ? 'locked' : ''} ${now || (!playingId && next?.id === v.id) ? 'current' : ''}`}>
+                <li key={v.id} className={`video-row ${v.complete ? 'complete' : ''} ${!v.unlocked ? 'locked' : ''} ${isNext ? 'next' : ''} ${now || (!playingId && isNext) ? 'current' : ''}`}>
                   {v.poster ? (
-                    <Thumb src={null} poster={`${base}/${v.poster}`} small badge={v.complete ? '✓' : v.unlocked ? String(v.order_index) : '🔒'} />
+                    <Thumb
+                      src={null}
+                      poster={`${base}/${v.poster}`}
+                      small
+                      done={v.complete}
+                      badge={v.complete ? undefined : v.unlocked ? String(v.order_index) : '🔒'}
+                      badgeTone={v.complete ? 'done' : v.unlocked ? 'next' : 'locked'}
+                    />
                   ) : (
                     <span className="video-status" aria-hidden="true">{v.complete ? '✓' : v.unlocked ? v.order_index : '🔒'}</span>
                   )}
                   <div className="video-meta">
                     <span className="video-title">{v.title}</span>
-                    <span className="muted">
-                      {formatDuration(v.duration_seconds)} · {now ? 'Playing now' : v.complete ? 'Complete' : v.unlocked ? 'Ready to watch' : 'Unlocks after the previous video'}
+                    <span className="video-when">
+                      {formatDuration(v.duration_seconds)} ·{' '}
+                      {v.complete ? (
+                        <span className="state-done">✓ Complete</span>
+                      ) : now ? (
+                        <span className="state-now">Playing now</span>
+                      ) : isNext ? (
+                        <span className="state-next">Up next — ready to play</span>
+                      ) : v.unlocked ? (
+                        'Ready to watch'
+                      ) : (
+                        'Unlocks after the previous video'
+                      )}
                     </span>
                   </div>
                   {v.unlocked && !expired && !now && (
                     <button className={`button small ${v.complete ? 'secondary' : ''}`} onClick={() => onPlay(v)}>
-                      {v.complete ? 'Watch again' : 'Watch'}
+                      {v.complete ? 'Watch again' : isNext ? 'Play next' : 'Watch'}
                     </button>
                   )}
                 </li>

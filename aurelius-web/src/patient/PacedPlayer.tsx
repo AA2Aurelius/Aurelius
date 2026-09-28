@@ -44,15 +44,27 @@ type Phase = 'starting' | 'ready' | 'complete' | 'error';
 // is treated as a skip attempt.
 const SKIP_TOLERANCE_S = 2;
 
-export function PacedPlayer({ token, video, onDone, onBack }: {
+export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone, onNext, onCertificate, onBack }: {
   token: string;
   video: PrescribedVideo;
-  onDone: () => void;
+  total: number;              // videos in the set
+  nextTitle?: string;         // the video that unlocks when this one is done
+  onComplete: () => void;     // the server confirmed this video is done
+  onDone: () => void;         // back to the list
+  onNext: () => void;         // play the next video
+  onCertificate: () => void;  // after the last video
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<Phase>('starting');
+  // Refresh the list (green check, next video unlocked) as soon as the
+  // server confirms completion, behind the "complete" screen.
+  const completeRef = useRef(onComplete);
+  completeRef.current = onComplete;
+  useEffect(() => {
+    if (phase === 'complete') completeRef.current();
+  }, [phase]);
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
@@ -346,11 +358,27 @@ export function PacedPlayer({ token, video, onDone, onBack }: {
           </div>
         )}
         {phase === 'complete' && (
-          <div className="overlay modal">
-            <div className="overlay-card">
+          <div className="overlay modal" role="dialog" aria-modal="true" aria-labelledby="done-title">
+            <div className="overlay-card done-card">
               <p className="done-mark" aria-hidden="true">✓</p>
-              <p><strong>Video complete.</strong></p>
-              <button className="button" onClick={onDone}>Continue</button>
+              <p id="done-title" className="done-title">Video {video.order_index} of {total} complete</p>
+              <p className="done-sub">{video.title}</p>
+              {nextTitle ? (
+                <>
+                  <p className="done-next">
+                    <span className="done-next-label">Up next, now unlocked</span>
+                    <strong>{nextTitle}</strong>
+                  </p>
+                  <button className="button" onClick={onNext} autoFocus>▶ Play next video</button>
+                  <button className="link-button" onClick={onDone}>Back to your videos</button>
+                </>
+              ) : (
+                <>
+                  <p className="done-next"><strong>That was the last video. Your certificate is ready.</strong></p>
+                  <button className="button" onClick={onCertificate} autoFocus>View your certificate</button>
+                  <button className="link-button" onClick={onDone}>Back to your videos</button>
+                </>
+              )}
             </div>
           </div>
         )}

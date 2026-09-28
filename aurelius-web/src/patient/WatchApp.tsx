@@ -30,6 +30,7 @@ export function WatchApp({ token }: { token: string }) {
       if (d.verified) {
         api<{ videos: EvergreenVideo[] }>(`${base}/evergreen`).then((r) => setEvergreen(r.videos)).catch(() => {});
       }
+      return d;
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 410
@@ -55,6 +56,16 @@ export function WatchApp({ token }: { token: string }) {
     setView({ kind: 'portal' });
     load();
   };
+  // After a video: reload (the server has unlocked the next one) and play it.
+  const playNext = async () => {
+    const d = await load();
+    const next = d?.verified ? d.videos.find((v) => v.unlocked && !v.complete) : undefined;
+    setView(next ? { kind: 'video', video: next } : { kind: 'portal' });
+  };
+  const showCertificate = async () => {
+    await load();
+    setView({ kind: 'certificate' });
+  };
 
   switch (view.kind) {
     case 'evergreen':
@@ -71,7 +82,20 @@ export function WatchApp({ token }: { token: string }) {
           evergreen={evergreen}
           evergreenBase={base}
           playingId={playing?.id}
-          player={playing && <PacedPlayer key={playing.id} token={token} video={playing} onDone={backToPortal} onBack={backToPortal} />}
+          player={playing && (
+            <PacedPlayer
+              key={playing.id}
+              token={token}
+              video={playing}
+              total={data.videos.length}
+              nextTitle={data.videos.find((v) => v.order_index > playing.order_index)?.title}
+              onComplete={load}
+              onDone={backToPortal}
+              onNext={playNext}
+              onCertificate={showCertificate}
+              onBack={backToPortal}
+            />
+          )}
           onPlay={(video) => setView({ kind: 'video', video })}
           onPlayEvergreen={(video) => setView({ kind: 'evergreen', video })}
           onCertificate={() => setView({ kind: 'certificate' })}

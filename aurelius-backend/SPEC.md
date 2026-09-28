@@ -235,7 +235,11 @@ published annual claims or malpractice figures (with sources, in
 `pages/Savings.tsx`) next to what a chosen percentage cut would save and
 our 10% fee, and explain the fee: last full year's losses ÷ 4 as a
 quarterly baseline, each quarter's saving against it, 10% of that. The
-patient's pages say they must receive the certificate before surgery. On the home page the header sits on the hero's blue, and the "How It
+patient's pages say they must receive the certificate before surgery.
+When the server confirms a video complete, the patient sees "Video N of M
+complete" with a green check and a "Play next video" button (or "View
+your certificate" after the last); the list beside it turns that video
+green with "✓ Complete" and flags the next one "Up next — ready to play". On the home page the header sits on the hero's blue, and the "How It
 Works" video plays next to the How it works text. The evergreen videos
 are public for this (`/api/public/evergreen`, `routes/public.ts`);
 procedure videos stay behind a sign-in.

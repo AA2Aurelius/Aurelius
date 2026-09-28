@@ -810,3 +810,26 @@ details[open] summary { margin-bottom: 12px; }
 @media (max-width: 1400px) {
   .top-nav .site-link:nth-child(-n + 3) { display: none; }
 }
+
+/* Completed videos: a green check you can't miss, and the next one flagged
+   as ready. */
+.thumb .thumb-done { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(18, 140, 96, 0.55); }
+.thumb .thumb-done span { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: #1fae78; color: #fff; font-size: 1.6rem; font-weight: 900; border: 3px solid #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+.thumb.small .thumb-done span { width: 30px; height: 30px; font-size: 1rem; border-width: 2px; }
+.thumb .thumb-badge.done { background: #1fae78; color: #fff; }
+.thumb .thumb-badge.next { background: var(--primary); color: #fff; }
+.video-row.complete { background: #effbf5; border-color: #bfe9d4; }
+.video-row.complete .video-status { background: #1fae78; color: #fff; }
+.video-row.next:not(.current) { border-color: #c5d0ff; }
+.video-when { font-size: 0.85rem; color: var(--muted); }
+.state-done, .state-next { white-space: nowrap; }
+.state-done { color: #138a5c; font-weight: 800; }
+.state-next { color: var(--primary); font-weight: 800; }
+.state-now { color: var(--primary); font-weight: 700; }
+.done-card { display: grid; gap: 8px; justify-items: center; max-width: 420px; }
+.done-card .done-mark { width: 76px; height: 76px; font-size: 2.4rem; background: #1fae78; box-shadow: 0 0 0 8px #dff6ea; margin-bottom: 6px; }
+.done-title { margin: 0; font-size: 1.3rem; font-weight: 800; color: #138a5c; }
+.done-sub { margin: 0; color: var(--muted); }
+.done-next { margin: 8px 0 4px; display: grid; gap: 2px; }
+.done-next-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.done-card .button { width: 100%; }
