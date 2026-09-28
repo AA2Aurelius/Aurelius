@@ -175,7 +175,7 @@ describe('replacing the signing key', () => {
     const oldKeyId = before.cert.certificate.signature.key_id;
     const original = env.SIGNING_KEY_JWK;
     const { privateKey } = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])) as CryptoKeyPair;
-    const { kty, crv, x, d } = await crypto.subtle.exportKey('jwk', privateKey);
+    const { kty, crv, x, d } = (await crypto.subtle.exportKey("jwk", privateKey)) as JsonWebKey;
     env.SIGNING_KEY_JWK = JSON.stringify({ kty, crv, x, d });
     try {
       const anyone = new Client();

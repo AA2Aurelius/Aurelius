@@ -44,25 +44,40 @@ export function signingKeys(env: Env): Promise<SigningKeys> {
 
 // Records the current key's public half (once), so certificates it signs
 // stay verifiable after the signing key is replaced.
+// Never fails the caller: issuing a certificate matters more than the
+// record (e.g. if migration 0007 hasn't been applied yet).
 export async function rememberSigningKey(env: Env): Promise<void> {
   const keys = await signingKeys(env);
-  await env.DB.prepare(`INSERT OR IGNORE INTO signing_keys (key_id, public_jwk, first_seen_at) VALUES (?, ?, ?)`)
-    .bind(keys.keyId, JSON.stringify(keys.publicJwk), nowIso()).run();
+  try {
+    await env.DB.prepare(`INSERT OR IGNORE INTO signing_keys (key_id, public_jwk, first_seen_at) VALUES (?, ?, ?)`)
+      .bind(keys.keyId, JSON.stringify(keys.publicJwk), nowIso()).run();
+  } catch (err) {
+    console.error('could not record the signing key (is migration 0007 applied?)', err);
+  }
+}
+
+async function earlierKeyRows(env: Env): Promise<Array<{ key_id: string; public_jwk: string }>> {
+  try {
+    const { results } = await env.DB.prepare(`SELECT key_id, public_jwk FROM signing_keys ORDER BY first_seen_at`).all<{ key_id: string; public_jwk: string }>();
+    return results;
+  } catch (err) {
+    console.error('could not read signing_keys (is migration 0007 applied?)', err);
+    return [];
+  }
 }
 
 // Every key certificates may have been signed with: the current one and
 // any earlier ones on record, by key_id.
 export async function knownPublicKeys(env: Env): Promise<Array<{ key_id: string; jwk: JsonWebKey; current: boolean }>> {
   const keys = await signingKeys(env);
-  const { results } = await env.DB.prepare(`SELECT key_id, public_jwk FROM signing_keys ORDER BY first_seen_at`).all<{ key_id: string; public_jwk: string }>();
-  const earlier = results.filter((r) => r.key_id !== keys.keyId).map((r) => ({ key_id: r.key_id, jwk: JSON.parse(r.public_jwk) as JsonWebKey, current: false }));
+  const earlier = (await earlierKeyRows(env)).filter((r) => r.key_id !== keys.keyId).map((r) => ({ key_id: r.key_id, jwk: JSON.parse(r.public_jwk) as JsonWebKey, current: false }));
   return [...earlier, { key_id: keys.keyId, jwk: keys.publicJwk, current: true }];
 }
 
 async function publicKeyFor(env: Env, keyId: string | undefined): Promise<CryptoKey | null> {
   const keys = await signingKeys(env);
   if (!keyId || keyId === keys.keyId) return keys.publicKey;
-  const row = await env.DB.prepare(`SELECT public_jwk FROM signing_keys WHERE key_id = ?`).bind(keyId).first<{ public_jwk: string }>();
+  const row = (await earlierKeyRows(env)).find((r) => r.key_id === keyId);
   if (!row) return null;
   const jwk = JSON.parse(row.public_jwk) as JsonWebKey;
   return crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: jwk.x }, { name: 'Ed25519' }, false, ['verify']);
