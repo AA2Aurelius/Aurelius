@@ -4,9 +4,14 @@
 // still open are closed, so they stop working and get no reminders.
 //
 //   npm run archive-invites -- --email doctor@clinic.com [--remote]
+//   npm run archive-invites -- --email doctor@clinic.com --restore [--remote]
 //
 // Archives every invite that doctor has made so far. It shows how many
-// first and asks you to type "yes".
+// first and asks you to type "yes". Archived invites are still listed in
+// the portal under Invites History > Filter by > Archived.
+//
+// --restore puts them all back in the main list, and reopens the links it
+// had closed (those still within their 48 hours work again).
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
@@ -44,25 +49,47 @@ if (!doctor) {
   process.exit(1);
 }
 const now = new Date().toISOString();
-const [{ n }] = query(`SELECT COUNT(*) AS n FROM prescriptions WHERE doctor_id = ${sqlString(doctor.id)} AND archived_at IS NULL`);
-if (!n) {
-  console.log(`${doctor.name} has no invites to archive.`);
-  process.exit(0);
-}
+const id = sqlString(doctor.id);
 
-const invites = `${n} invite${n === 1 ? '' : 's'}`;
-const rl = createInterface({ input: process.stdin, output: process.stdout });
-rl.question(`Archive ${n === 1 ? 'the 1 invite' : `all ${n} invites`} ${doctor.name} has made so far (${target.slice(2)} database)? Type "yes": `, (answer) => {
-  rl.close();
-  if (answer.trim().toLowerCase() !== 'yes') {
-    console.log('Nothing changed.');
-    return;
+if (process.argv.includes('--restore')) {
+  const [{ n }] = query(`SELECT COUNT(*) AS n FROM prescriptions WHERE doctor_id = ${id} AND archived_at IS NOT NULL`);
+  if (!n) {
+    console.log(`${doctor.name} has no archived invites.`);
+    process.exit(0);
   }
-  const id = sqlString(doctor.id);
-  query(
-    `UPDATE prescriptions SET revoked_at = ${sqlString(now)}, revoked_reason = 'archived' ` +
-      `WHERE doctor_id = ${id} AND archived_at IS NULL AND revoked_at IS NULL; ` +
-      `UPDATE prescriptions SET archived_at = ${sqlString(now)} WHERE doctor_id = ${id} AND archived_at IS NULL`
-  );
-  console.log(`Archived ${invites}. ${doctor.name}'s Patients list now starts empty; certificates can still be verified.`);
-});
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  rl.question(`Put ${n === 1 ? 'the 1 archived invite' : `all ${n} archived invites`} back in ${doctor.name}'s Patients list (${target.slice(2)} database)? Type "yes": `, (answer) => {
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'yes') {
+      console.log('Nothing changed.');
+      return;
+    }
+    query(
+      `UPDATE prescriptions SET revoked_at = NULL, revoked_reason = NULL WHERE doctor_id = ${id} AND revoked_reason = 'archived'; ` +
+        `UPDATE prescriptions SET archived_at = NULL WHERE doctor_id = ${id} AND archived_at IS NOT NULL`
+    );
+    console.log(`Restored ${n} invite${n === 1 ? '' : 's'}. They're back in ${doctor.name}'s Patients list.`);
+  });
+} else {
+  const [{ n }] = query(`SELECT COUNT(*) AS n FROM prescriptions WHERE doctor_id = ${sqlString(doctor.id)} AND archived_at IS NULL`);
+  if (!n) {
+    console.log(`${doctor.name} has no invites to archive.`);
+    process.exit(0);
+  }
+
+  const invites = `${n} invite${n === 1 ? '' : 's'}`;
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  rl.question(`Archive ${n === 1 ? 'the 1 invite' : `all ${n} invites`} ${doctor.name} has made so far (${target.slice(2)} database)? Type "yes": `, (answer) => {
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'yes') {
+      console.log('Nothing changed.');
+      return;
+    }
+    query(
+      `UPDATE prescriptions SET revoked_at = ${sqlString(now)}, revoked_reason = 'archived' ` +
+        `WHERE doctor_id = ${id} AND archived_at IS NULL AND revoked_at IS NULL; ` +
+        `UPDATE prescriptions SET archived_at = ${sqlString(now)} WHERE doctor_id = ${id} AND archived_at IS NULL`
+    );
+    console.log(`Archived ${invites}. ${doctor.name}'s Patients list now starts empty; certificates can still be verified.`);
+  });
+}

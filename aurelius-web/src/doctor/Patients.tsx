@@ -4,11 +4,12 @@ import { InviteIcon } from '../components/icons';
 import { useInvite, type PatientRow } from './library';
 import { doctorApi, navigate } from './nav';
 
-type Filter = 'all' | 'waiting' | 'confirmed' | 'complete' | 'ended';
+type Filter = 'all' | 'waiting' | 'confirmed' | 'complete' | 'ended' | 'archived';
 
 // Where each invite stands, in the wireframe's words: the patient has
 // confirmed it's them ("Confirmed"), or hasn't opened it yet.
 function inviteStatus(r: PatientRow): { label: string; cls: string; group: Filter } {
+  if (r.archived_at) return { label: r.certified_at ? 'Complete · archived' : 'Archived', cls: r.certified_at ? 'ok' : 'muted', group: 'archived' };
   if (r.certified_at) return { label: 'Complete', cls: 'ok', group: 'complete' };
   if (r.revoked_at) return { label: r.revoked_reason === 'resent' ? 'Replaced' : 'Cancelled', cls: 'muted', group: 'ended' };
   if (r.hours_left <= 0) return { label: 'Expired', cls: 'bad', group: 'ended' };
@@ -26,9 +27,15 @@ export function Patients() {
   const [filter, setFilter] = useState<Filter>('all');
   const [busy, setBusy] = useState('');
 
+  // Archived invites (e.g. tests hidden before launch) come separately and
+  // show only under Filter by > Archived.
+  const [archived, setArchived] = useState<PatientRow[]>([]);
   const load = () =>
-    doctorApi<PatientRow[]>('/patients')
-      .then(setRows)
+    Promise.all([doctorApi<PatientRow[]>('/patients'), doctorApi<PatientRow[]>('/patients?archived=1')])
+      .then(([main, old]) => {
+        setRows(main);
+        setArchived(old);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load patients.'));
   useEffect(() => {
     load();
@@ -40,9 +47,9 @@ export function Patients() {
   const now = new Date();
   const thisMonth = rows.filter((r) => { const d = new Date(r.created_at); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).length;
   const q = query.trim().toLowerCase();
-  const shown = rows.filter(
+  const shown = (filter === 'archived' ? archived : rows).filter(
     (r) =>
-      (filter === 'all' || inviteStatus(r).group === filter) &&
+      (filter === 'all' || filter === 'archived' || inviteStatus(r).group === filter) &&
       (!q || `${r.patient_name} ${r.patient_email} ${r.procedure_name}`.toLowerCase().includes(q))
   );
 
@@ -75,12 +82,26 @@ export function Patients() {
           <option value="confirmed">Confirmed</option>
           <option value="complete">Complete</option>
           <option value="ended">Expired or cancelled</option>
+          <option value="archived">Archived ({archived.length})</option>
         </select>
         <div className="month-count"><strong>{thisMonth}</strong><span>invites this month</span></div>
         <button className="button" onClick={() => invite()}><InviteIcon /> Invite patient</button>
       </div>
 
-      {rows.length === 0 ? (
+      {archived.length > 0 && filter !== 'archived' && (
+        <p className="archived-hint">
+          {archived.length === 1 ? '1 earlier invite is' : `${archived.length} earlier invites are`} archived and hidden from this
+          list.{' '}
+          <button className="link-button inline" onClick={() => setFilter('archived')}>Show archived invites</button>
+        </p>
+      )}
+      {filter === 'archived' && (
+        <p className="archived-hint">
+          Showing archived invites. Their records and certificates are kept.{' '}
+          <button className="link-button inline" onClick={() => setFilter('all')}>Back to current invites</button>
+        </p>
+      )}
+      {rows.length === 0 && filter !== 'archived' ? (
         <div className="card stack">
           <p>No invites yet.</p>
           <p className="muted">Invite a patient to a procedure's videos and they get an email with their link.</p>

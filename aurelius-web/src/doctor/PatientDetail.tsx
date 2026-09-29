@@ -31,6 +31,7 @@ interface Detail {
   }>;
   confirmed_at: string | null;
   last_activity_at: string | null;
+  archived_at: string | null;
 }
 
 type Action = 'none' | 'resend' | 'cancel';
@@ -57,7 +58,9 @@ export function PatientDetail({ id }: { id: string }) {
   // "Not started" only until the patient does something: opening the link
   // and confirming, then watching, show as progress.
   const anyWatched = d.videos.some((v) => (v.watched_ms ?? 0) > 0);
-  const status = base.label === 'Not started' && anyWatched
+  const status = d.archived_at
+    ? { ...base, label: certified ? 'Complete · archived' : 'Archived' }
+    : base.label === 'Not started' && anyWatched
     ? { ...base, label: 'In progress' }
     : base.label === 'Not started' && d.confirmed_at
       ? { ...base, label: 'Opened the link' }
@@ -162,7 +165,7 @@ export function PatientDetail({ id }: { id: string }) {
         </ol>
         {d.revoked_at && (
           <p className="muted" style={{ margin: 0 }}>
-            {d.revoked_reason === 'resent' ? 'Replaced' : 'Cancelled'} {formatDateTime(d.revoked_at)}.
+            {d.revoked_reason === 'resent' ? 'Replaced' : d.revoked_reason === 'archived' ? 'Archived' : 'Cancelled'} {formatDateTime(d.revoked_at)}.
           </p>
         )}
       </section>

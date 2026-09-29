@@ -349,8 +349,10 @@ API answer unless a route sets its own), the contact form (`POST
 Privacy Policy (`/privacy`) and Terms of Use (`/terms`) pages describing
 what the service does, and `npm run archive-invites -- --email doctor@clinic.com
 --remote` to hide test invites (viewing records and certificates can't be
-deleted, so archiving closes open links and hides them from the portal;
-certificates stay verifiable).
+deleted, so archiving closes open links and hides them from the main list;
+certificates stay verifiable). Archived invites stay findable under
+Invites History > Filter by > Archived (`GET /api/doctor/patients?archived=1`),
+and `--restore` puts them back and reopens the links it closed.
 
 Still for the owner: a lawyer's review of the privacy policy, terms,
 certificate wording and pricing page; HIPAA business associate agreements

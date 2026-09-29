@@ -123,6 +123,10 @@ describe('archived invites', () => {
     const list = (await (await s.doctorClient.fetch('/api/doctor/patients')).json()) as any[];
     expect(list.find((r) => r.id === s.prescriptionId)).toBeUndefined();
     expect((await new Client().fetch(`/api/watch/${s.token}`)).status).toBe(410);
+    // Still findable under "Archived".
+    const archived = (await (await s.doctorClient.fetch('/api/doctor/patients?archived=1')).json()) as any[];
+    expect(archived.map((r) => r.id)).toEqual([s.prescriptionId]);
+    expect(archived[0].archived_at).toMatch(/Z$/);
   });
 });
 

@@ -900,3 +900,4 @@ details[open] summary { margin-bottom: 12px; }
 .big-play span { font-size: 1.1rem; }
 .big-play:hover { background: #fff; }
 .big-play:focus-visible { outline: 4px solid var(--focus); }
+.archived-hint { margin: 0; padding: 10px 14px; border-radius: 12px; background: #f1f3f9; color: var(--muted); }
