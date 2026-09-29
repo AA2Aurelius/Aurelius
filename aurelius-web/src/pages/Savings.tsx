@@ -23,7 +23,7 @@ export const MALPRACTICE_LOSSES: LossRow[] = [
   },
 ];
 
-const RATES = [0.005, 0.01, 0.02, 0.05];
+const RATES = [0.01, 0.02, 0.05, 0.1];
 const FEE = 0.1;
 
 // Amounts in millions throughout, as the companies report them.
@@ -38,7 +38,7 @@ const pct = (r: number) => `${(r * 100).toLocaleString('en-US', { maximumFractio
 // Annual losses next to what an illustrative cut in them would save, and
 // our 10% of that saving.
 export function SavingsTable({ rows, lossLabel, caption }: { rows: LossRow[]; lossLabel: string; caption: string }) {
-  const [rate, setRate] = useState(0.01);
+  const [rate, setRate] = useState(0.1);
   return (
     <div className="savings">
       <div className="savings-head">
@@ -90,8 +90,19 @@ export function FeeMethod({ kind }: { kind: 'claims' | 'malpractice' }) {
         <li><strong>Our fee.</strong> 10% of that quarter's saving, billed quarterly. If there's no saving, there's no fee.</li>
       </ol>
       <p className="fee-example">
-        <strong>Example:</strong> last year's {what} were $40 million, so the quarterly baseline is $10 million. This quarter
-        they were $9.2 million: a saving of $800,000, and our fee is $80,000.
+        {kind === 'claims' ? (
+          <>
+            <strong>Example:</strong> a regional insurer's claims losses last year were $2 billion, so the quarterly baseline is
+            $500 million. This quarter they were $450 million, 10% lower: a saving of <strong>$50 million</strong>, and our fee
+            is <strong>$5 million</strong>. Over a year at that pace, the insurer keeps $180 million and our fee is $20 million.
+          </>
+        ) : (
+          <>
+            <strong>Example:</strong> a hospital system's malpractice losses last year were $200 million, so the quarterly
+            baseline is $50 million. This quarter they were $45 million, 10% lower: a saving of <strong>$5 million</strong>, and
+            our fee is <strong>$500,000</strong>. Over a year at that pace, the system keeps $18 million and our fee is $2 million.
+          </>
+        )}
       </p>
     </div>
   );
