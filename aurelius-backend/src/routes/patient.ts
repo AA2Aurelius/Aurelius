@@ -42,7 +42,10 @@ patient.get('/:token', async (c) => {
   const proc = await c.env.DB.prepare(`SELECT name FROM procedures WHERE id = ?`).bind(p.procedure_id).first<{ name: string }>();
   const doctor = await c.env.DB.prepare(`SELECT name FROM doctors WHERE id = ?`).bind(p.doctor_id).first<{ name: string }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at,
+            (SELECT pb.allowed_ms FROM playback_sessions pb
+               WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND pb.completed_at IS NULL
+               ORDER BY pb.created_at DESC LIMIT 1) AS resume_ms
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
   ).bind(p.id).all<any>();
@@ -52,8 +55,10 @@ patient.get('/:token', async (c) => {
   const videos = results.map((v) => {
     const unlocked = allBeforeDone;
     allBeforeDone = allBeforeDone && !!v.completed_at;
-    const { poster_r2_key, ...rest } = v;
-    return { ...rest, unlocked, complete: !!v.completed_at, poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null };
+    const { poster_r2_key, resume_ms, ...rest } = v;
+    // Where an unfinished video will pick up (the player resumes there).
+    const resumeSeconds = !v.completed_at && resume_ms > 0 ? Math.min(v.duration_seconds, Math.floor(resume_ms / 1000)) : 0;
+    return { ...rest, unlocked, complete: !!v.completed_at, resume_seconds: resumeSeconds, poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null };
   });
 
   return c.json({ verified: true, patientName: p.patient_name, procedureName: proc?.name, doctorName: doctor?.name ?? null, hoursLeft, certified: c.get('certified'), videos });

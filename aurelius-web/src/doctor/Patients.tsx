@@ -91,7 +91,7 @@ export function Patients() {
         <div className="history-wrap">
           <table className="history-table">
             <thead>
-              <tr><th>#</th><th>Patient</th><th>Date</th><th>Video</th><th>Time</th><th>Status</th><th>Action</th></tr>
+              <tr><th>#</th><th>Patient</th><th>Date</th><th>Video</th><th>Progress</th><th>Time</th><th>Status</th><th>Action</th></tr>
             </thead>
             <tbody>
               {shown.map((r, i) => {
@@ -106,11 +106,16 @@ export function Patients() {
                     </td>
                     <td>{formatDate(r.created_at)}</td>
                     <td>{r.procedure_name}</td>
+                    <td className="h-progress">
+                      <div className={`bar ${r.certified_at ? 'done' : ''}`} aria-hidden="true"><span style={{ width: `${r.videos_total ? Math.round((100 * r.videos_done) / r.videos_total) : 0}%` }} /></div>
+                      <span>{r.videos_done} of {r.videos_total} videos</span>
+                    </td>
                     <td className={`h-time ${live && r.hours_left < 12 ? 'late' : ''}`}>
                       {live ? `${Math.floor(r.hours_left)} h` : '—'}
                     </td>
                     <td><span className={`h-status ${st.cls}`}>{st.label}</span></td>
-                    <td>
+                    <td className="h-actions">
+                      <button className="button small" onClick={(e) => { e.stopPropagation(); open(r); }}>View progress</button>
                       {live ? (
                         <button className="trash" aria-label={`Cancel ${r.patient_name}'s link`} title="Cancel link" disabled={busy === r.id} onClick={(e) => { e.stopPropagation(); cancel(r); }}>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>

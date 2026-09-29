@@ -128,6 +128,11 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
         });
         applyState(st);
         setPhase('ready');
+        // The patient chose this video, so start it. Browsers that won't
+        // start sound without a tap leave the big Play button showing.
+        if (!st.attentionCheck) {
+          videoRef.current?.play().then(() => setTimeout(() => sendHeartbeatRef.current(), 300)).catch(() => {});
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof ApiError ? err.message : 'Something went wrong starting the video.');
@@ -179,6 +184,15 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
       inFlight.current = false;
     }
   }, [base, applyState]);
+  // For callers set up before sendHeartbeat exists (the start effect).
+  const sendHeartbeatRef = useRef(sendHeartbeat);
+  sendHeartbeatRef.current = sendHeartbeat;
+  // Leaving the video saves how far the patient got, so they pick up there.
+  // Waits briefly for it, so the list shows the saved spot.
+  const leave = async () => {
+    await Promise.race([sendHeartbeat(), new Promise((r) => setTimeout(r, 1500))]);
+    onBack();
+  };
 
   useEffect(() => {
     if (phase !== 'ready') return;
@@ -317,7 +331,7 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
 
   return (
     <div className="player-page">
-      <button className="link-button" onClick={onBack}>✕ Close video</button>
+      <button className="link-button back-to-list" onClick={leave}>← Back to all my videos <span className="muted">(your place is saved)</span></button>
       <h1 className="player-title">
         <span className="muted">Video {video.order_index}.</span> {video.title}
       </h1>
@@ -339,6 +353,11 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
           </button>
         )}
         {phase === 'ready' && playing && buffering && <div className="overlay passive"><div className="spinner" aria-label="Loading" /></div>}
+        {phase === 'ready' && !playing && !buffering && !awayPaused && !check && (
+          <button className="big-play" onClick={play} aria-label="Play the video">
+            <span aria-hidden="true">▶</span> {position > 1 ? 'Continue' : 'Play'}
+          </button>
+        )}
         {awayPaused && !check && phase !== 'complete' && (
           <div className="overlay modal">
             <div className="overlay-card">

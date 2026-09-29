@@ -24,7 +24,13 @@ interface Detail {
     completed_at: string | null;
     seek_attempts: number;
     pause_count: number;
+    watched_ms: number;
+    last_watched_at: string | null;
+    checks_passed: number;
+    checks_missed: number;
   }>;
+  confirmed_at: string | null;
+  last_activity_at: string | null;
 }
 
 type Action = 'none' | 'resend' | 'cancel';
@@ -47,7 +53,18 @@ export function PatientDetail({ id }: { id: string }) {
 
   const done = d.videos.filter((v) => v.completed_at).length;
   const certified = d.videos.length > 0 && done === d.videos.length;
-  const status = linkStatus({ ...d, certified, videos_done: done, videos_total: d.videos.length });
+  const base = linkStatus({ ...d, certified, videos_done: done, videos_total: d.videos.length });
+  // "Not started" only until the patient does something: opening the link
+  // and confirming, then watching, show as progress.
+  const anyWatched = d.videos.some((v) => (v.watched_ms ?? 0) > 0);
+  const status = base.label === 'Not started' && anyWatched
+    ? { ...base, label: 'In progress' }
+    : base.label === 'Not started' && d.confirmed_at
+      ? { ...base, label: 'Opened the link' }
+      : base;
+  const totalMs = d.videos.reduce((n, v) => n + v.duration_seconds * 1000, 0);
+  const watchedMs = d.videos.reduce((n, v) => n + Math.min(v.watched_ms ?? 0, v.duration_seconds * 1000), 0);
+  const pctWatched = totalMs ? Math.round((100 * watchedMs) / totalMs) : 0;
   const canResend = !certified && !d.replaced_by;
   const canCancel = !certified && !d.revoked_at;
 
@@ -86,40 +103,68 @@ export function PatientDetail({ id }: { id: string }) {
         </div>
       )}
 
-      <section className="card stack">
-        <h2>Progress <span className="muted">({done} of {d.videos.length} complete)</span></h2>
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr><th>#</th><th>Video</th><th>Length</th><th>Started</th><th>Completed</th><th>Pauses</th><th>Skip attempts</th></tr>
-            </thead>
-            <tbody>
-              {d.videos.map((v) => (
-                <tr key={v.id}>
-                  <td>{v.order_index}</td>
-                  <td>{v.title}</td>
-                  <td>{formatDuration(v.duration_seconds)}</td>
-                  <td>{v.started_at ? formatDateTime(v.started_at) : '—'}</td>
-                  <td>{v.completed_at ? `✓ ${formatDateTime(v.completed_at)}` : '—'}</td>
-                  <td>{v.pause_count}</td>
-                  <td>{v.seek_attempts}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <section className="summary-tiles" aria-label="Summary">
+        <div className="tile">
+          <span className="tile-label">Videos watched</span>
+          <strong className="tile-value">{done} of {d.videos.length}</strong>
+          <div className={`bar ${certified ? 'done' : ''}`} aria-hidden="true"><span style={{ width: `${pctWatched}%` }} /></div>
+          <span className="tile-sub">{pctWatched}% of the viewing time</span>
         </div>
-        <dl className="facts">
-          <dt>Sent</dt>
-          <dd>{formatDateTime(d.created_at)}</dd>
-          <dt>{d.hours_left > 0 ? 'Link works until' : 'Link expired'}</dt>
-          <dd>{formatDateTime(d.expires_at)}</dd>
-          {d.revoked_at && (
-            <>
-              <dt>{d.revoked_reason === 'resent' ? 'Replaced' : 'Cancelled'}</dt>
-              <dd>{formatDateTime(d.revoked_at)}</dd>
-            </>
-          )}
-        </dl>
+        <div className="tile">
+          <span className="tile-label">Identity confirmed</span>
+          <strong className="tile-value">{d.confirmed_at ? '✓ Yes' : 'Not yet'}</strong>
+          <span className="tile-sub">{d.confirmed_at ? formatDateTime(d.confirmed_at) : "They haven't opened the link and entered the emailed code yet."}</span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">Last activity</span>
+          <strong className="tile-value">{d.last_activity_at ? formatDateTime(d.last_activity_at) : '—'}</strong>
+          <span className="tile-sub">{d.last_activity_at ? 'Last time a video was playing' : 'No viewing yet'}</span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">{d.hours_left > 0 ? 'Link works until' : 'Link expired'}</span>
+          <strong className="tile-value">{formatDateTime(d.expires_at)}</strong>
+          <span className="tile-sub">Sent {formatDateTime(d.created_at)}</span>
+        </div>
+      </section>
+
+      <section className="card stack">
+        <h2>Viewing, video by video</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Each video is released no faster than real time, so the bar shows how much the patient has actually watched. Skips are
+          blocked, and "still watching?" checks confirm someone is there.
+        </p>
+        <ol className="view-list">
+          {d.videos.map((v) => {
+            const total = v.duration_seconds * 1000;
+            const pct = total ? Math.round((100 * Math.min(v.watched_ms, total)) / total) : 0;
+            return (
+              <li key={v.id} className={v.completed_at ? 'done' : v.watched_ms > 0 ? 'partial' : ''}>
+                <span className="view-num" aria-hidden="true">{v.completed_at ? '✓' : v.order_index}</span>
+                <div className="view-body">
+                  <div className="view-head">
+                    <strong>{v.order_index}. {v.title}</strong>
+                    <span className={`view-state ${v.completed_at ? 'done' : ''}`}>
+                      {v.completed_at ? `✓ Complete · ${formatDateTime(v.completed_at)}` : v.watched_ms > 0 ? `In progress · ${pct}%` : 'Not started'}
+                    </span>
+                  </div>
+                  <div className={`bar ${v.completed_at ? 'done' : ''}`} aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
+                  <p className="view-facts">
+                    Watched {formatDuration(Math.min(v.watched_ms, total) / 1000)} of {formatDuration(v.duration_seconds)}
+                    {' · '}Checks passed: {v.checks_passed}{v.checks_missed ? ` (missed ${v.checks_missed})` : ''}
+                    {' · '}Pauses: {v.pause_count}
+                    {' · '}Skips blocked: {v.seek_attempts}
+                    {v.started_at && !v.completed_at ? ` · Started ${formatDateTime(v.started_at)}` : ''}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        {d.revoked_at && (
+          <p className="muted" style={{ margin: 0 }}>
+            {d.revoked_reason === 'resent' ? 'Replaced' : 'Cancelled'} {formatDateTime(d.revoked_at)}.
+          </p>
+        )}
       </section>
 
       {(canResend || canCancel) && action === 'none' && (

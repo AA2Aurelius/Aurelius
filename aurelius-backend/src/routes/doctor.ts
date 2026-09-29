@@ -134,11 +134,25 @@ doctor.get('/prescriptions/:id', async (c) => {
   if (!p) return c.json({ error: 'Not found.' }, 404);
 
   const { results: videos } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count,
+            (SELECT MAX(pb.allowed_ms) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS watched_ms,
+            (SELECT MAX(pb.last_heartbeat_at) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS last_watched_at,
+            (SELECT COUNT(*) FROM attention_checks ac JOIN playback_sessions pb ON pb.id = ac.playback_id
+               WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND ac.outcome = 'passed') AS checks_passed,
+            (SELECT COUNT(*) FROM attention_checks ac JOIN playback_sessions pb ON pb.id = ac.playback_id
+               WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND ac.outcome = 'missed') AS checks_missed
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
-  ).bind(p.id).all();
-  return c.json({ ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), videos });
+  ).bind(p.id).all<any>();
+  const confirmed = await c.env.DB.prepare(`SELECT MIN(created_at) AS at FROM patient_sessions WHERE prescription_id = ?`).bind(p.id).first<{ at: string | null }>();
+  // How far each video got: all of it once complete, else the furthest the
+  // server released in any playback of it.
+  for (const v of videos) {
+    const total = v.duration_seconds * 1000;
+    v.watched_ms = v.completed_at ? total : Math.min(total, v.watched_ms ?? 0);
+  }
+  const lastActivity = videos.map((v) => v.last_watched_at).filter(Boolean).sort().pop() ?? null;
+  return c.json({ ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), confirmed_at: confirmed?.at ?? null, last_activity_at: lastActivity, videos });
 });
 
 // The full certificate (the public verify page shows only a summary).
