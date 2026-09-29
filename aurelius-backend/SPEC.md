@@ -247,7 +247,23 @@ patient's pages say they must receive the certificate before surgery.
 When the server confirms a video complete, the patient sees "Video N of M
 complete" with a green check and a "Play next video" button (or "View
 your certificate" after the last); the list beside it turns that video
-green with "✓ Complete" and flags the next one "Up next — ready to play". On the home page the header sits on the hero's blue, and the "How It
+green with "✓ Complete" and flags the next one "Up next — ready to play".
+
+Ease of use: the patient's sign-in is two numbered steps ("Get your code",
+"Type the code"), the code is checked as soon as the sixth number is
+typed, and a new code is offered with a spam-folder hint. The patient's
+page leads with one big button — "Start my videos", "Play video N" or
+"Continue where you left off" with the time they stopped at (the portal
+returns `resume_seconds` per video) — and says their place is saved. A
+chosen video starts by itself (a big Play button shows when a browser
+won't allow that), and leaving a video saves the spot first. For doctors,
+Invites History has a progress bar and a "View progress" button per row,
+and a patient's page shows summary tiles (videos watched, identity
+confirmed, last activity, link expiry) and a bar per video of how much was
+watched, with checks passed, pauses and skips blocked
+(`GET /api/doctor/prescriptions/:id` adds `watched_ms`, `checks_passed`,
+`checks_missed`, `last_watched_at` per video, and `confirmed_at`,
+`last_activity_at`). On the home page the header sits on the hero's blue, and the "How It
 Works" video plays next to the How it works text. The evergreen videos
 are public for this (`/api/public/evergreen`, `routes/public.ts`);
 procedure videos stay behind a sign-in.
@@ -333,8 +349,10 @@ API answer unless a route sets its own), the contact form (`POST
 Privacy Policy (`/privacy`) and Terms of Use (`/terms`) pages describing
 what the service does, and `npm run archive-invites -- --email doctor@clinic.com
 --remote` to hide test invites (viewing records and certificates can't be
-deleted, so archiving closes open links and hides them from the portal;
-certificates stay verifiable).
+deleted, so archiving closes open links and hides them from the main list;
+certificates stay verifiable). Archived invites stay findable under
+Invites History > Filter by > Archived (`GET /api/doctor/patients?archived=1`),
+and `--restore` puts them back and reopens the links it closed.
 
 Still for the owner: a lawyer's review of the privacy policy, terms,
 certificate wording and pricing page; HIPAA business associate agreements

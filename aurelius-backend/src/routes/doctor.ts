@@ -103,9 +103,12 @@ registerPreviewRoutes(doctor, '/preview');
 // The signed-in doctor's patients with live progress, cancelled links
 // included; a link replaced by a resend is shown as its replacement. Link
 // tokens are never returned here -- only their hashes are stored.
+// ?archived=1 lists only the archived ones (e.g. test invites hidden before
+// launch), so they can still be found.
 doctor.get('/patients', async (c) => {
+  const archived = c.req.query('archived') === '1';
   const { results } = await c.env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
+    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason, pr.archived_at,
             pr.procedure_id, proc.name AS procedure_name,
             (SELECT MIN(ps.created_at) FROM patient_sessions ps WHERE ps.prescription_id = pr.id) AS confirmed_at,
             (SELECT COUNT(*) FROM video_progress vp
@@ -114,10 +117,10 @@ doctor.get('/patients', async (c) => {
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.doctor_id = ? AND pr.archived_at IS NULL
+     WHERE pr.doctor_id = ? AND (pr.archived_at IS NOT NULL) = ?
        AND NOT EXISTS (SELECT 1 FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id)
      ORDER BY pr.created_at DESC`
-  ).bind(c.get('doctor').doctorId).all();
+  ).bind(c.get('doctor').doctorId, archived ? 1 : 0).all();
   return c.json(results.map((r: any) => ({ ...r, hours_left: Math.max(0, hoursUntil(r.expires_at)) })));
 });
 
@@ -125,7 +128,7 @@ doctor.get('/patients', async (c) => {
 doctor.get('/prescriptions/:id', async (c) => {
   const p = await c.env.DB.prepare(
     `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
-            pr.replaces_prescription_id,
+            pr.replaces_prescription_id, pr.archived_at,
             (SELECT id FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id) AS replaced_by,
             proc.name AS procedure_name
      FROM prescriptions pr JOIN procedures proc ON proc.id = pr.procedure_id
@@ -134,11 +137,25 @@ doctor.get('/prescriptions/:id', async (c) => {
   if (!p) return c.json({ error: 'Not found.' }, 404);
 
   const { results: videos } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count,
+            (SELECT MAX(pb.allowed_ms) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS watched_ms,
+            (SELECT MAX(pb.last_heartbeat_at) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS last_watched_at,
+            (SELECT COUNT(*) FROM attention_checks ac JOIN playback_sessions pb ON pb.id = ac.playback_id
+               WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND ac.outcome = 'passed') AS checks_passed,
+            (SELECT COUNT(*) FROM attention_checks ac JOIN playback_sessions pb ON pb.id = ac.playback_id
+               WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND ac.outcome = 'missed') AS checks_missed
      FROM video_progress vp JOIN videos v ON v.id = vp.video_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
-  ).bind(p.id).all();
-  return c.json({ ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), videos });
+  ).bind(p.id).all<any>();
+  const confirmed = await c.env.DB.prepare(`SELECT MIN(created_at) AS at FROM patient_sessions WHERE prescription_id = ?`).bind(p.id).first<{ at: string | null }>();
+  // How far each video got: all of it once complete, else the furthest the
+  // server released in any playback of it.
+  for (const v of videos) {
+    const total = v.duration_seconds * 1000;
+    v.watched_ms = v.completed_at ? total : Math.min(total, v.watched_ms ?? 0);
+  }
+  const lastActivity = videos.map((v) => v.last_watched_at).filter(Boolean).sort().pop() ?? null;
+  return c.json({ ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), confirmed_at: confirmed?.at ?? null, last_activity_at: lastActivity, videos });
 });
 
 // The full certificate (the public verify page shows only a summary).

@@ -10,6 +10,7 @@ export interface PortalVideo {
   duration_seconds: number;
   unlocked: boolean;
   complete: boolean;
+  resume_seconds: number;   // where an unfinished video picks up; 0 = from the start
   poster: string | null;
 }
 
@@ -81,6 +82,36 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
         )
       )}
 
+      {!player && next && (
+        <section className="continue-card" aria-labelledby="continue-title">
+          <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} small label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
+          <div className="continue-meta">
+            <p id="continue-title" className="continue-kicker">
+              {next.resume_seconds > 0 ? 'Continue where you left off' : done > 0 ? 'Up next' : 'Start here'}
+            </p>
+            <p className="continue-title">Video {next.order_index} of {data.videos.length}: {next.title}</p>
+            {next.resume_seconds > 0 ? (
+              <>
+                <div className="bar" aria-hidden="true"><span style={{ width: `${Math.round((100 * next.resume_seconds) / next.duration_seconds)}%` }} /></div>
+                <p className="continue-sub">You stopped at {formatDuration(next.resume_seconds)} of {formatDuration(next.duration_seconds)}. It picks up right there.</p>
+              </>
+            ) : (
+              <p className="continue-sub">{done} of {data.videos.length} videos done · {formatDuration(next.duration_seconds)} long</p>
+            )}
+          </div>
+          <button className="button big" onClick={() => onPlay(next)}>
+            ▶ {next.resume_seconds > 0 ? 'Continue watching' : done > 0 ? `Play video ${next.order_index}` : 'Start my videos'}
+          </button>
+        </section>
+      )}
+      {!player && !data.certified && !expired && (
+        <p className="place-saved">
+          <strong>Your place is always saved.</strong> You can stop at any time. To come back, open the link in your email
+          again (it works until {new Date(Date.now() + data.hoursLeft * 3600_000).toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })}),
+          and you'll return right here.
+        </p>
+      )}
+
       {evergreen.length > 0 && (
         <section className="stack">
           <h2 style={{ margin: 0 }}>Before you begin <span className="muted" style={{ fontWeight: 600, fontSize: '0.9rem' }}>· optional</span></h2>
@@ -109,7 +140,9 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
               <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
               <div className="up-next-meta">
                 <div>
-                  <p className="muted" style={{ margin: 0 }}>Up next · Video {next.order_index} of {data.videos.length}</p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {next.resume_seconds > 0 ? `Continue · Video ${next.order_index} of ${data.videos.length} · from ${formatDuration(next.resume_seconds)}` : `Up next · Video ${next.order_index} of ${data.videos.length}`}
+                  </p>
                   <h2 style={{ margin: 0 }}>{next.title}</h2>
                 </div>
                 <span className="pill blue">{formatDuration(next.duration_seconds)}</span>
@@ -168,6 +201,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
                         <span className="state-done">✓ Complete</span>
                       ) : now ? (
                         <span className="state-now">Playing now</span>
+                      ) : isNext && v.resume_seconds > 0 ? (
+                        <span className="state-next">Stopped at {formatDuration(v.resume_seconds)} — continue</span>
                       ) : isNext ? (
                         <span className="state-next">Up next — ready to play</span>
                       ) : v.unlocked ? (
@@ -179,7 +214,7 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
                   </div>
                   {v.unlocked && !expired && !now && (
                     <button className={`button small ${v.complete ? 'secondary' : ''}`} onClick={() => onPlay(v)}>
-                      {v.complete ? 'Watch again' : isNext ? 'Play next' : 'Watch'}
+                      {v.complete ? 'Watch again' : isNext && v.resume_seconds > 0 ? 'Continue' : isNext ? 'Play next' : 'Watch'}
                     </button>
                   )}
                 </li>

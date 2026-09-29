@@ -13,6 +13,7 @@ export interface PatientRow {
   expires_at: string;
   revoked_at: string | null;
   revoked_reason: string | null;
+  archived_at?: string | null;
   videos_done: number;
   videos_total: number;
   certified_at: string | null;
