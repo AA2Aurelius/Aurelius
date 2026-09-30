@@ -26,8 +26,8 @@ function TopNav({ doctor }: { doctor: boolean }) {
     <nav className="top-nav no-print" aria-label="Site">
       <a className="site-link" href="/#procedures">Procedures</a>
       <a className="site-link" href="/#how">How it works</a>
-      <a className="site-link" href="/#pricing">Pricing</a>
-      <a className="site-link" href="/#about">About</a>
+      <a className="site-link pricing-link" href="/#pricing">Pricing</a>
+      <a className="site-link about-link" href="/#about">About</a>
       <a className="site-link" href="/#contact">Contact</a>
       <a className="nav-cta" href="/doctor?invite=1" onClick={invite}>Invite patient</a>
       <a className="nav-btn" href="/doctor/patients" onClick={go('/doctor/patients')}>Patients</a>
