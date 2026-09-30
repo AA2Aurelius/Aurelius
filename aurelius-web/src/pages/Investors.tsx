@@ -16,13 +16,9 @@ const ASK = {
     'HIPAA-ready hosting and email',
   ],
 };
-const TEAM: Array<{ name: string; role: string; bio: string }> = [
-  { name: 'Antonius Aurelius', role: 'Founder', bio: 'Started Aurelius Code and leads the team.' },
-  {
-    name: 'The studio',
-    role: 'Animators, voice actors, web designers, graphic artists and more',
-    bio: 'A small creative team: the people you meet in our Brain Science video, who make every video on the platform.',
-  },
+const TEAM = [
+  'Aurelius Code was created by Antonius Aurelius. We are a group of dedicated voice-over artists, animators, surgical consultants, web developers, programmers and project managers.',
+  'In our medical platform, our scripts are created in collaboration with surgical consultants.',
 ];
 
 const LIVE = [
@@ -192,14 +188,8 @@ export function InvestorsPage() {
 
       <div id="s9">
         <Slide n={++n} kicker="Team" title="Who's building it.">
-          <div className="deck-grid two">
-            {TEAM.map((t) => (
-              <div key={t.name} className="deck-card">
-                <h3>{t.name}</h3>
-                <p className="deck-role">{t.role}</p>
-                {t.bio && <p>{t.bio}</p>}
-              </div>
-            ))}
+          <div className="deck-card deck-team">
+            {TEAM.map((t) => <p key={t}>{t}</p>)}
           </div>
         </Slide>
       </div>
