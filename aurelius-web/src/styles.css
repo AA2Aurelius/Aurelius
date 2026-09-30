@@ -921,7 +921,7 @@ details[open] summary { margin-bottom: 12px; }
 .deck-cover-sub { max-width: 680px; font-size: 1.15rem; color: rgba(255, 255, 255, 0.92); margin: 0 0 24px; }
 .deck-cover-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .deck-cover-actions .button { text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem; }
-.deck-toc { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px 6px; flex-wrap: wrap; justify-content: center; padding: 10px 16px; background: rgba(255, 255, 255, 0.96); border-bottom: 1px solid #e3e7f3; box-shadow: 0 2px 10px rgba(20, 30, 70, 0.05); }
+.deck-toc { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px 6px; flex-wrap: wrap; justify-content: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid #e3e7f3; box-shadow: 0 2px 10px rgba(20, 30, 70, 0.05); }
 .deck-toc a { font-size: 0.8rem; font-weight: 700; color: #5a6380; text-decoration: none; padding: 5px 10px; border-radius: 999px; }
 .deck-toc a:hover { background: var(--primary-soft); color: var(--site-blue); }
 .deck-slide { padding: 64px 0; scroll-margin-top: 50px; }
@@ -960,3 +960,15 @@ details[open] summary { margin-bottom: 12px; }
   .deck-slide { break-inside: avoid; }
 }
 .deck-team { max-width: 820px; display: grid; gap: 12px; font-size: 1.1rem; }
+.deck-kicker-title { font-size: 1.5rem; letter-spacing: 0.16em; color: #1b2a6b; margin-bottom: 24px; }
+.deck-slide.blue .deck-kicker-title { color: #fff; }
+.deck-traction, .deck-phase { gap: 16px; font-size: 1.1rem; max-width: 860px; }
+.deck-ticks { list-style: none; padding: 0; margin: 12px 0 2px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; font-size: 1rem; }
+.deck-ticks li { position: relative; padding-left: 26px; }
+.deck-ticks li::before { content: ''; position: absolute; left: 0; top: 0.3em; width: 16px; height: 16px; border-radius: 50%; background: var(--mint-cta); }
+.deck-ticks li::after { content: ''; position: absolute; left: 5px; top: calc(0.3em + 3px); width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.deck-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.deck-chips span { background: #fff; border: 1px solid #dfe5f5; color: #1b2a6b; border-radius: 999px; padding: 5px 12px; font-size: 0.88rem; box-shadow: 0 1px 3px rgba(20, 30, 70, 0.05); }
+.deck-explain { margin-top: 28px; }
+.deck-explain .deck-card p + p { margin-top: 10px; }
+@media (max-width: 760px) { .deck-ticks { grid-template-columns: 1fr; } }
