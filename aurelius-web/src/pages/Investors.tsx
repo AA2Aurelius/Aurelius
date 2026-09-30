@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { MALPRACTICE_LOSSES, PAYER_LOSSES } from './Savings';
 
-// Headline figures, rounded: "$314 billion", "$5.0 billion".
-const big = (n: number) => `$${n >= 100e9 ? Math.round(n / 1e9) : (n / 1e9).toFixed(1)} billion`;
+// Headline figures, rounded: "$314 Billion", "$5.0 Billion".
+// "11,451 payments, about $439,000 each" -> "11,451 Payments, About $439,000 Each".
+const titleCase = (s: string) => s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+const big = (n: number) => `$${n >= 100e9 ? Math.round(n / 1e9) : (n / 1e9).toFixed(1)} Billion`;
 
 // The investor deck as one scrolling page, at /investors. It isn't linked
 // from the site's menus; it's shared by link. The TEAM and COMING entries
@@ -48,7 +50,7 @@ export function InvestorsPage() {
       <header className="deck-cover">
         <div className="deck-inner">
           <p className="deck-cover-kicker">Investor overview · Confidential</p>
-          <h1>Informed consent patients actually watch, and doctors can prove.</h1>
+          <h1>Informed Consent Patients Actually Watch, And Doctors Can Prove.</h1>
           <p className="deck-cover-sub">
             Aurelius Code sends patients short, branded videos about their procedure before they consent, makes sure every
             minute is watched, and gives their doctor a signed, verifiable certificate.
@@ -61,17 +63,17 @@ export function InvestorsPage() {
       </header>
 
       <nav className="deck-toc" aria-label="Sections">
-        {['Problem', 'Solution', 'How it works', 'Why it holds up', 'Market', 'Business model', 'Traction', 'Team', 'Our next phase', 'Demo'].map((t, i) => (
+        {['Problem', 'Solution', 'How It Works', 'Why It Holds Up', 'Market', 'Monetization', 'Traction', 'Team', 'Our Next Phase', 'Demo'].map((t, i) => (
           <a key={t} href={`#s${i + 1}`}>{t}</a>
         ))}
       </nav>
 
       <div id="s1">
-        <Slide n={++n} kicker="The problem" title="Consent is signed, but rarely understood, and hard to prove.">
+        <Slide n={++n} kicker="The problem" title="Consent Is Signed, But Rarely Understood, And Hard To Prove.">
           <div className="deck-grid two">
             <div className="deck-card">
               <p className="deck-big">{big(malpractice.amount)}</p>
-              <p>paid in U.S. medical malpractice claims in {malpractice.year} ({malpractice.what.toLowerCase()}).</p>
+              <p>Paid In U.S. Medical Malpractice Claims In {malpractice.year} ({titleCase(malpractice.what)}).</p>
               <p className="deck-src">Source: <a href={malpractice.href} target="_blank" rel="noopener noreferrer">{malpractice.source}</a></p>
             </div>
             <ul className="deck-list">
@@ -84,28 +86,28 @@ export function InvestorsPage() {
       </div>
 
       <div id="s2">
-        <Slide n={++n} kicker="The solution" title="Short procedure videos, watched in full, with a signed certificate." tone="blue">
+        <Slide n={++n} kicker="The solution" title="Short Videos On Procedures, Mandatory To Watch In Full Before Surgery. A Completion Certificate Is Provided For The Patient And The Insurer." tone="blue">
           <div className="deck-grid three">
-            <div className="deck-card"><h3>For patients</h3><p>Plain, branded videos, a few minutes each, on any phone. They come back where they left off.</p></div>
-            <div className="deck-card"><h3>For doctors</h3><p>Invite in seconds, then see progress video by video. A 12-hour reminder goes out to both sides.</p></div>
-            <div className="deck-card"><h3>For insurers</h3><p>A signed certificate that every video was watched, which anyone can verify, and fewer claims from misunderstanding.</p></div>
+            <div className="deck-card"><h3>For Patients</h3><p>Branded videos, two minutes or less each, on any laptop or phone. If they stop partway, they pick up where they left off.</p></div>
+            <div className="deck-card"><h3>For Doctors</h3><p>Invite patients, then see their progress with each video. Each invitation expires after 48 hours; with 12 hours remaining, a reminder is sent to both doctor and patient.</p></div>
+            <div className="deck-card"><h3>For Insurers</h3><p>A signed, verifiable certificate that every video was watched, leaving fewer claims as a result of misunderstanding.</p></div>
           </div>
         </Slide>
       </div>
 
       <div id="s3">
-        <Slide n={++n} kicker="How it works" title="Four steps from invite to certificate.">
+        <Slide n={++n} kicker="How it works" title="Four Steps From Invite To Certification.">
           <ol className="deck-steps">
             <li><strong>Doctor invites.</strong> They choose the procedure and enter the patient's email; the patient gets a 48-hour link.</li>
             <li><strong>Patient confirms it's them.</strong> A one-time code by email, with no password or account.</li>
-            <li><strong>Videos, in order.</strong> Each one unlocks the next. Skipping is blocked, and "still watching?" checks confirm attention.</li>
+            <li><strong>Videos, in order.</strong> Each completed video unlocks the next. Skipping ahead is blocked throughout, and an "I'm still watching" button that must be pressed confirms attention is being paid.</li>
             <li><strong>Signed certificate.</strong> Issued automatically; the doctor sees it, and anyone can check it with its code.</li>
           </ol>
         </Slide>
       </div>
 
       <div id="s4">
-        <Slide n={++n} kicker="Why it holds up" title="Built so the record stands up to scrutiny." tone="blue">
+        <Slide n={++n} kicker="Why it holds up" title="Built So The Record Stands Up To Scrutiny." tone="blue">
           <div className="deck-grid two">
             <ul className="deck-list">
               <li><strong>Server-paced playback:</strong> the video is released no faster than real time, so it can't be skipped, even by tampering with the browser.</li>
@@ -122,7 +124,7 @@ export function InvestorsPage() {
       </div>
 
       <div id="s5">
-        <Slide n={++n} kicker="Market" title="The losses are measured in billions.">
+        <Slide n={++n} kicker="Market" title="The Losses Are Measured In Billions.">
           <div className="deck-grid three">
             {[...PAYER_LOSSES, malpractice].map((r) => (
               <div key={r.name} className="deck-card">
@@ -140,15 +142,15 @@ export function InvestorsPage() {
       </div>
 
       <div id="s6">
-        <Slide n={++n} kicker="Business model" title="Three ways to buy, from a single practice to a whole insurer." tone="blue">
+        <Slide n={++n} kicker="Business model" title="The Monetization." tone="blue">
           <div className="deck-grid three">
             <div className="deck-card"><h3>Subscription</h3><p>Monthly or yearly, by patient volume: private practices, small and large hospitals.</p></div>
-            <div className="deck-card"><h3>Revenue share</h3><p><strong>10% of the savings</strong> we deliver to payers and insurers, measured quarterly against last year's losses. No saving, no fee.</p></div>
-            <div className="deck-card"><h3>Loss prevention mandate</h3><p>Watching becomes a requirement for surgery: no certificate, no surgery. <strong>10% of malpractice savings</strong>, billed quarterly.</p></div>
+            <div className="deck-card"><h3>Revenue Share</h3><p><strong>10% of the savings</strong> we deliver to payers and insurers, measured quarterly against last year's losses. No savings, no fee.</p></div>
+            <div className="deck-card"><h3>Loss Prevention Mandate</h3><p>Watching becomes a requirement for surgery: no certificate, no surgery. <strong>10% of malpractice savings</strong>, billed quarterly.</p></div>
           </div>
           <div className="deck-card deck-example">
             <p>
-              <strong>Example:</strong> an insurer with $2 billion a year in claims losses. If losses fall 10%, it saves $50 million a
+              <strong>Example:</strong> An insurer with $2 billion a year in claims losses. If losses fall 10%, it saves $50 million a
               quarter ($200 million a year), and our fee is $5 million a quarter ($20 million a year).
             </p>
           </div>
@@ -177,7 +179,7 @@ export function InvestorsPage() {
       </div>
 
       <div id="s8">
-        <Slide n={++n} kicker="Team" title="Who's building it." tone="blue">
+        <Slide n={++n} kicker="Team" title="Who's Building It." tone="blue">
           <div className="deck-card deck-team">
             {TEAM.map((t) => <p key={t}>{t}</p>)}
           </div>
@@ -185,7 +187,7 @@ export function InvestorsPage() {
       </div>
 
       <div id="s9">
-        <Slide n={++n} kicker="Roadmap" title="Our next phase.">
+        <Slide n={++n} kicker="Roadmap" title="Our Next Phase.">
           <ul className="deck-list deck-phase">
             <li>
               <strong>Coming soon: the highest-volume surgical procedures.</strong>
@@ -197,7 +199,7 @@ export function InvestorsPage() {
           </ul>
           <div className="deck-grid two deck-explain">
             <div className="deck-card">
-              <h3>How a pilot works</h3>
+              <h3>How A Pilot Works</h3>
               <p>
                 A practice, hospital system or insurer uses Aurelius Code for its surgical patients for an agreed period. Before
                 surgery, each patient watches their procedure's videos and receives a completion certificate.
@@ -209,7 +211,7 @@ export function InvestorsPage() {
               </p>
             </div>
             <div className="deck-card">
-              <h3>What a completion certificate is</h3>
+              <h3>What A Completion Certificate Is</h3>
               <p>
                 When a patient finishes every video for their procedure, Aurelius Code issues a digitally signed certificate. It
                 records who watched, which videos and when, and it's issued only if every minute was watched and every attention
@@ -231,7 +233,7 @@ export function InvestorsPage() {
         <section id="demo" className="deck-slide deck-demo" aria-labelledby="demo-title">
           <div className="deck-inner">
             <p className="deck-kicker"><span>{String(++n).padStart(2, '0')}</span> Try it yourself</p>
-            <h2 id="demo-title" className="deck-title">The live demo takes about five minutes.</h2>
+            <h2 id="demo-title" className="deck-title">The Live Demo Takes About Five Minutes.</h2>
             <ol className="deck-steps">
               <li><strong>Sign in as a doctor</strong> at <a href="/doctor" target="_blank" rel="noopener">aureliuscode.com/doctor</a> with the demo login from our email.</li>
               <li><strong>Invite yourself:</strong> click Invite patient, enter your name and email, and choose a procedure.</li>
