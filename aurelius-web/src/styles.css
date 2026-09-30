@@ -911,3 +911,52 @@ details[open] summary { margin-bottom: 12px; }
   .top-nav .nav-portal { padding: 7px 11px; letter-spacing: 0.08em; }
   .header-right { gap: 8px; }
 }
+
+/* Investor deck at /investors: one long page of slides. */
+.deck { background: #f4f6fb; }
+.deck-inner { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+.deck-cover { background: linear-gradient(115deg, #2c4bc9 0%, #3a5cd6 45%, #5076e2 100%); color: #fff; padding: 72px 0 80px; border-bottom-left-radius: 90px; }
+.deck-cover h1 { color: #fff; font-size: 2.5rem; line-height: 1.15; max-width: 760px; margin: 0 0 16px; }
+.deck-cover-kicker { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.8rem; font-weight: 700; color: var(--mint-cta); margin: 0 0 12px; }
+.deck-cover-sub { max-width: 680px; font-size: 1.15rem; color: rgba(255, 255, 255, 0.92); margin: 0 0 24px; }
+.deck-cover-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.deck-cover-actions .button { text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem; }
+.deck-toc { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px 6px; flex-wrap: wrap; justify-content: center; padding: 10px 16px; background: rgba(255, 255, 255, 0.96); border-bottom: 1px solid #e3e7f3; box-shadow: 0 2px 10px rgba(20, 30, 70, 0.05); }
+.deck-toc a { font-size: 0.8rem; font-weight: 700; color: #5a6380; text-decoration: none; padding: 5px 10px; border-radius: 999px; }
+.deck-toc a:hover { background: var(--primary-soft); color: var(--site-blue); }
+.deck-slide { padding: 64px 0; scroll-margin-top: 50px; }
+.deck > div { scroll-margin-top: 50px; }
+.deck-slide.blue { background: #2a48c9; color: #fff; }
+.deck-kicker { margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.78rem; font-weight: 800; color: var(--site-blue); }
+.deck-kicker span { display: inline-block; margin-right: 8px; color: var(--mint-cta); }
+.deck-slide.blue .deck-kicker { color: #c9d6ff; }
+.deck-title { font-size: 2rem; line-height: 1.2; margin: 0 0 26px; color: #1b2a6b; max-width: 820px; }
+.deck-slide.blue .deck-title { color: #fff; }
+.deck-grid { display: grid; gap: 18px; }
+.deck-grid.two { grid-template-columns: 1fr 1fr; }
+.deck-grid.three { grid-template-columns: repeat(3, 1fr); }
+.deck-card { background: #fff; color: var(--text); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; }
+.deck-card h3 { margin: 0 0 6px; color: #1b2a6b; }
+.deck-card p { margin: 0 0 6px; }
+.deck-big { font-size: 2.1rem; font-weight: 700; color: var(--site-blue); line-height: 1.1; margin-bottom: 8px !important; }
+.deck-src, .deck-small, .deck-role { font-size: 0.82rem; color: var(--muted); }
+.deck-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 1.05rem; }
+.deck-steps { margin: 0 0 22px; padding-left: 22px; display: grid; gap: 12px; font-size: 1.08rem; max-width: 820px; }
+.deck-note { margin: 18px 0 0; font-size: 0.88rem; color: var(--muted); max-width: 820px; }
+.deck-example { margin-top: 18px; }
+.deck-lead { font-size: 1.1rem; margin-top: 22px; }
+.deck-slide.blue a:not(.button) { color: #fff; }
+.deck-demo { background: #fff; border-top: 4px solid var(--mint-cta); }
+.deck-demo .button { text-decoration: none; }
+@media (max-width: 820px) {
+  .deck-grid.two, .deck-grid.three { grid-template-columns: 1fr; }
+  .deck-cover h1 { font-size: 1.8rem; }
+  .deck-title { font-size: 1.5rem; }
+  .deck-cover { border-bottom-left-radius: 40px; padding: 48px 0 56px; }
+  .deck-slide { padding: 44px 0; }
+}
+@media print {
+  .deck-toc, .deck-cover-actions { display: none; }
+  .deck-slide { break-inside: avoid; }
+}
+.deck-team { max-width: 820px; display: grid; gap: 12px; font-size: 1.1rem; }
