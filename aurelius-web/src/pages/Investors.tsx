@@ -9,7 +9,7 @@ const big = (n: number) => `$${n >= 100e9 ? Math.round(n / 1e9) : (n / 1e9).toFi
 // below are the parts most likely to change.
 
 const ASK = {
-  amount: '$1.5 million', // leave '' to hide the line
+  amount: '', // e.g. '$1.5 million'; leave '' to ask for support without a figure
   uses: [
     'Video creation for the procedures in the pipeline',
     'Sales to hospitals and health systems',
@@ -195,7 +195,7 @@ export function InvestorsPage() {
       </div>
 
       <div id="s10">
-        <Slide n={++n} kicker="The ask" title={ASK.amount ? `We're raising ${ASK.amount}.` : "Let's talk."} tone="blue">
+        <Slide n={++n} kicker="The ask" title={ASK.amount ? `We're raising ${ASK.amount}.` : "We're looking for support for:"} tone="blue">
           {ASK.uses.length > 0 && (
             <ul className="deck-list">
               {ASK.uses.map((u) => <li key={u}>{u}</li>)}
