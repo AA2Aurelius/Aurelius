@@ -5,15 +5,24 @@ import { MALPRACTICE_LOSSES, PAYER_LOSSES } from './Savings';
 const big = (n: number) => `$${n >= 100e9 ? Math.round(n / 1e9) : (n / 1e9).toFixed(1)} billion`;
 
 // The investor deck as one scrolling page, at /investors. It isn't linked
-// from the site's menus; it's shared by link. Edit the ASK and TEAM entries
-// below before sending it.
+// from the site's menus; it's shared by link. The ASK and TEAM entries
+// below are the parts most likely to change.
 
 const ASK = {
-  amount: '', // e.g. '$1.5 million seed round' -- leave '' to hide the line
-  uses: [] as string[], // e.g. ['Hosting and HIPAA compliance', 'Videos for 13 more procedures', 'Sales to hospital systems']
+  amount: '$1.5 million', // leave '' to hide the line
+  uses: [
+    'Video creation for the procedures in the pipeline',
+    'Sales to hospitals and health systems',
+    'HIPAA-ready hosting and email',
+  ],
 };
 const TEAM: Array<{ name: string; role: string; bio: string }> = [
-  { name: 'Antonius Aurelius', role: 'Founder', bio: '' },
+  { name: 'Antonius Aurelius', role: 'Founder', bio: 'Started Aurelius Code and leads the team.' },
+  {
+    name: 'The studio',
+    role: 'Animators, voice actors, web designers, graphic artists and more',
+    bio: 'A small creative team: the people you meet in our Brain Science video, who make every video on the platform.',
+  },
 ];
 
 const LIVE = [
@@ -183,7 +192,7 @@ export function InvestorsPage() {
 
       <div id="s9">
         <Slide n={++n} kicker="Team" title="Who's building it.">
-          <div className="deck-grid three">
+          <div className="deck-grid two">
             {TEAM.map((t) => (
               <div key={t.name} className="deck-card">
                 <h3>{t.name}</h3>
