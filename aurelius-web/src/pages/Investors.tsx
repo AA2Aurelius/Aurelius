@@ -195,7 +195,7 @@ export function InvestorsPage() {
       </div>
 
       <div id="s10">
-        <Slide n={++n} kicker="The ask" title={ASK.amount ? `We're raising ${ASK.amount}.` : "We're looking for support for:"} tone="blue">
+        <Slide n={++n} kicker="The ask" title={ASK.amount ? `We're raising ${ASK.amount}.` : 'Our next phase:'} tone="blue">
           {ASK.uses.length > 0 && (
             <ul className="deck-list">
               {ASK.uses.map((u) => <li key={u}>{u}</li>)}
