@@ -5,38 +5,35 @@ import { MALPRACTICE_LOSSES, PAYER_LOSSES } from './Savings';
 const big = (n: number) => `$${n >= 100e9 ? Math.round(n / 1e9) : (n / 1e9).toFixed(1)} billion`;
 
 // The investor deck as one scrolling page, at /investors. It isn't linked
-// from the site's menus; it's shared by link. The ASK and TEAM entries
+// from the site's menus; it's shared by link. The TEAM and COMING entries
 // below are the parts most likely to change.
 
-const ASK = {
-  amount: '', // e.g. '$1.5 million'; leave '' to ask for support without a figure
-  uses: [
-    'Video creation for the procedures in the pipeline',
-    'Sales to hospitals and health systems',
-    'HIPAA-ready hosting and email',
-  ],
-};
 const TEAM = [
   'Aurelius Code was created by Antonius Aurelius. We are a group of dedicated voice-over artists, animators, surgical consultants, web developers, programmers and project managers.',
   'In our medical platform, our scripts are created in collaboration with surgical consultants.',
 ];
 
-const LIVE = [
-  { name: 'Spinal Fusion', videos: 6 },
-  { name: 'Hip Replacement', videos: 6 },
-];
+// The highest-volume surgical procedures, next in line for videos.
 const COMING = [
   'Appendectomy', 'Cesarean Delivery', 'Circumcision', 'Coronary Artery Bypass Surgery', 'Gallbladder Removal',
   'Heart Valve Surgery', 'Hip Dysplasia', 'Knee Replacement', 'Laminectomy', 'Pacemakers',
   'Percutaneous Coronary Angioplasty', 'Staph Infections', 'Vaginal Hysterectomy',
 ];
 
-function Slide({ n, kicker, title, children, tone }: { n: number; kicker: string; title: string; children: ReactNode; tone?: 'blue' }) {
+// Without a title, the section name itself is the heading.
+function Slide({ n, kicker, title, children, tone }: { n: number; kicker: string; title?: string; children: ReactNode; tone?: 'blue' }) {
+  const num = <span>{String(n).padStart(2, '0')}</span>;
   return (
     <section className={`deck-slide ${tone === 'blue' ? 'blue' : ''}`} aria-labelledby={`slide-${n}`}>
       <div className="deck-inner">
-        <p className="deck-kicker"><span>{String(n).padStart(2, '0')}</span> {kicker}</p>
-        <h2 id={`slide-${n}`} className="deck-title">{title}</h2>
+        {title ? (
+          <>
+            <p className="deck-kicker">{num} {kicker}</p>
+            <h2 id={`slide-${n}`} className="deck-title">{title}</h2>
+          </>
+        ) : (
+          <h2 id={`slide-${n}`} className="deck-kicker deck-kicker-title">{num} {kicker}</h2>
+        )}
         {children}
       </div>
     </section>
@@ -64,7 +61,7 @@ export function InvestorsPage() {
       </header>
 
       <nav className="deck-toc" aria-label="Sections">
-        {['Problem', 'Solution', 'How it works', 'Why it holds up', 'Market', 'Business model', 'Traction', 'Roadmap', 'Team', 'The ask', 'Demo'].map((t, i) => (
+        {['Problem', 'Solution', 'How it works', 'Why it holds up', 'Market', 'Business model', 'Traction', 'Team', 'Our next phase', 'Demo'].map((t, i) => (
           <a key={t} href={`#s${i + 1}`}>{t}</a>
         ))}
       </nav>
@@ -159,55 +156,78 @@ export function InvestorsPage() {
       </div>
 
       <div id="s7">
-        <Slide n={++n} kicker="Traction" title="Live, working, and ready for pilots.">
-          <div className="deck-grid two">
-            <ul className="deck-list">
-              <li><strong>Platform live</strong> at aureliuscode.com: doctor portal, patient experience, certificates and public verification.</li>
-              <li><strong>{LIVE.length} procedures live</strong> ({LIVE.map((p) => `${p.name}, ${p.videos} videos`).join('; ')}), plus two short explainers.</li>
-              <li><strong>{COMING.length} more procedures</strong> in the pipeline.</li>
-              <li>Tested end to end on iPhone, Android and desktop.</li>
-            </ul>
-            <div className="deck-card">
-              <h3>Coming next</h3>
-              <p className="deck-small">{COMING.join(' · ')}</p>
-            </div>
-          </div>
+        <Slide n={++n} kicker="Traction">
+          <ul className="deck-list deck-traction">
+            <li>
+              <strong>The platform is live</strong> at <a href="/" target="_blank" rel="noopener">aureliuscode.com</a>:
+              <ul className="deck-ticks">
+                <li>Doctor portal</li>
+                <li>Patient portal</li>
+                <li>Completion certificate at the conclusion of each procedure's videos</li>
+                <li>Public verification of every certificate</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Our active videos</strong> include Brain Science and How It Works, with two procedures: Spinal Fusion and Hip
+              Replacement.
+            </li>
+            <li><strong>Our application is tested</strong> end to end on iPhone, Android and desktop.</li>
+          </ul>
         </Slide>
       </div>
 
       <div id="s8">
-        <Slide n={++n} kicker="Roadmap" title="What the next stage of funding builds." tone="blue">
-          <ol className="deck-steps">
-            <li><strong>HIPAA-ready hosting and email</strong> under signed business associate agreements, for hospital rollouts.</li>
-            <li><strong>Videos for the procedure pipeline</strong>, starting with the highest-volume surgeries.</li>
-            <li><strong>Self-serve for doctors:</strong> sign-up, billing and password reset.</li>
-            <li><strong>Pilots</strong> with practices, hospital systems and an insurer, measuring the effect on claims.</li>
-          </ol>
-        </Slide>
-      </div>
-
-      <div id="s9">
-        <Slide n={++n} kicker="Team" title="Who's building it.">
+        <Slide n={++n} kicker="Team" title="Who's building it." tone="blue">
           <div className="deck-card deck-team">
             {TEAM.map((t) => <p key={t}>{t}</p>)}
           </div>
         </Slide>
       </div>
 
-      <div id="s10">
-        <Slide n={++n} kicker="The ask" title={ASK.amount ? `We're raising ${ASK.amount}.` : 'Our next phase:'} tone="blue">
-          {ASK.uses.length > 0 && (
-            <ul className="deck-list">
-              {ASK.uses.map((u) => <li key={u}>{u}</li>)}
-            </ul>
-          )}
+      <div id="s9">
+        <Slide n={++n} kicker="Roadmap" title="Our next phase.">
+          <ul className="deck-list deck-phase">
+            <li>
+              <strong>Coming soon: the highest-volume surgical procedures.</strong>
+              <span className="deck-chips">{COMING.map((c) => <span key={c}>{c}</span>)}</span>
+            </li>
+            <li><strong>HIPAA-ready hosting and email</strong> under signed Business Associate Agreements (BAA), for hospital rollouts.</li>
+            <li><strong>Self-serve for doctors:</strong> sign-up, billing and password reset.</li>
+            <li><strong>Pilots</strong> with practices, hospital systems and an insurer, measuring the effect on claims.</li>
+          </ul>
+          <div className="deck-grid two deck-explain">
+            <div className="deck-card">
+              <h3>How a pilot works</h3>
+              <p>
+                A practice, hospital system or insurer uses Aurelius Code for its surgical patients for an agreed period. Before
+                surgery, each patient watches their procedure's videos and receives a completion certificate.
+              </p>
+              <p>
+                We then compare that period's claims, complaints and malpractice costs with the client's own figures from the year
+                before, so the savings are measured, not assumed. Those results are the basis for sales to hospitals and health
+                systems.
+              </p>
+            </div>
+            <div className="deck-card">
+              <h3>What a completion certificate is</h3>
+              <p>
+                When a patient finishes every video for their procedure, Aurelius Code issues a digitally signed certificate. It
+                records who watched, which videos and when, and it's issued only if every minute was watched and every attention
+                check was answered.
+              </p>
+              <p>
+                The doctor keeps it with the patient's consent. Anyone, such as a hospital, insurer or court, can check its code at
+                aureliuscode.com, and any change to it would show.
+              </p>
+            </div>
+          </div>
           <p className="deck-lead">
-            To talk further, use the <a href="/#contact" target="_blank" rel="noopener">contact form</a> on our site.
+            For more information, contact us at <a href="mailto:tony@aaurelius.com">tony@aaurelius.com</a>.
           </p>
         </Slide>
       </div>
 
-      <div id="s11">
+      <div id="s10">
         <section id="demo" className="deck-slide deck-demo" aria-labelledby="demo-title">
           <div className="deck-inner">
             <p className="deck-kicker"><span>{String(++n).padStart(2, '0')}</span> Try it yourself</p>
