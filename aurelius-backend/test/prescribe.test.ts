@@ -72,3 +72,25 @@ describe('prescribe', () => {
     expect(def.t).toMatch(ISO);
   });
 });
+
+describe('invite limits', () => {
+  it('stops one doctor account from sending more than 30 invites an hour', async () => {
+    const emails = captureEmails();
+    try {
+      const client = await loginDoctor(await seedDoctor());
+      const { procedureId } = await seedProcedure(1);
+      for (let i = 0; i < 30; i++) {
+        const r = await client.post('/api/doctor/prescribe', { patient_name: `P ${i}`, patient_email: `p${i}@mail.test`, procedure_id: procedureId });
+        expect(r.status).toBe(201);
+      }
+      const over = await client.post('/api/doctor/prescribe', { patient_name: 'One Too Many', patient_email: 'over@mail.test', procedure_id: procedureId });
+      expect(over.status).toBe(429);
+      expect(emails.sent.filter((e) => e.to === 'over@mail.test')).toHaveLength(0);
+      // Another doctor is unaffected.
+      const other = await loginDoctor(await seedDoctor());
+      expect((await other.post('/api/doctor/prescribe', { patient_name: 'Fine', patient_email: 'fine@mail.test', procedure_id: procedureId })).status).toBe(201);
+    } finally {
+      emails.restore();
+    }
+  });
+});

@@ -4,7 +4,7 @@ import { checkCertificate, formatVerificationCode, getCertificateRow, issueCerti
 import { sendEmail } from '../email';
 import { Env, clientIp, hoursFromNow, hoursUntil, isEmail, maskEmail, nowIso, randomToken, sha256Hex, uuid } from '../lib';
 import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
-import { hitRateLimit, peekRateLimit } from '../ratelimit';
+import { hitRateLimit, overLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
 import { AppEnv, Prescription, readJson, requireDoctor } from './common';
 import { registerEvergreenRoutes, registerPreviewRoutes } from './evergreen';
@@ -275,7 +275,19 @@ async function getOwnedPrescription(env: Env, id: string, doctorId: string): Pro
   return env.DB.prepare(`SELECT * FROM prescriptions WHERE id = ? AND doctor_id = ?`).bind(id, doctorId).first<Prescription>();
 }
 
+// Each invite sends an email, so a doctor account (including a shared demo
+// login) can send at most INVITES_PER_HOUR an hour and INVITES_PER_DAY a day.
+const INVITES_PER_HOUR = 30;
+const INVITES_PER_DAY = 100;
+async function tooManyInvites(env: Env, doctorId: string): Promise<boolean> {
+  const hour = await overLimit(env, `invites-h:${doctorId}`, INVITES_PER_HOUR, 3600);
+  const day = await overLimit(env, `invites-d:${doctorId}`, INVITES_PER_DAY, 86400);
+  return hour || day;
+}
+const TOO_MANY_INVITES = 'You have sent a lot of invites in a short time. Please try again later.';
+
 doctor.post('/prescribe', async (c) => {
+  if (await tooManyInvites(c.env, c.get('doctor').doctorId)) return c.json({ error: TOO_MANY_INVITES }, 429);
   const body = await readJson(c);
   const patientName = typeof body.patient_name === 'string' ? body.patient_name.trim() : '';
   const patientEmail = typeof body.patient_email === 'string' ? body.patient_email.trim() : '';
@@ -305,6 +317,7 @@ doctor.post('/prescriptions/:id/resend', async (c) => {
   const doctor = c.get('doctor');
   const old = await getOwnedPrescription(c.env, c.req.param('id'), doctor.doctorId);
   if (!old) return c.json({ error: 'Not found.' }, 404);
+  if (await tooManyInvites(c.env, doctor.doctorId)) return c.json({ error: TOO_MANY_INVITES }, 429);
   if (await getCertificateRow(c.env, old.id)) return c.json({ error: 'This patient has already completed every video.' }, 409);
   const replaced = await c.env.DB.prepare(`SELECT id FROM prescriptions WHERE replaces_prescription_id = ?`).bind(old.id).first<{ id: string }>();
   if (replaced) return c.json({ error: 'This link has already been resent.', replacedBy: replaced.id }, 409);

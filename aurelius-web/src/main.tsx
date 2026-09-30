@@ -4,6 +4,7 @@ import { Wordmark } from './components/Brand';
 import { DoctorApp, OPEN_INVITE } from './doctor/DoctorApp';
 import { navigate } from './doctor/nav';
 import { Home } from './pages/Home';
+import { InvestorsPage } from './pages/Investors';
 import { PrivacyPage, TermsPage } from './pages/Legal';
 import { VerifyPage } from './pages/VerifyPage';
 import { WatchApp } from './patient/WatchApp';
@@ -43,6 +44,7 @@ function App() {
   const watch = /^\/watch\/([^/]+)\/?$/.exec(path);
   const check = /^\/verify\/([^/]+)\/?$/.exec(path);
   const legal = /^\/(privacy|terms)\/?$/.exec(path)?.[1];
+  const investors = /^\/investors\/?$/.test(path);
   const doctor = /^\/doctor(\/|$)/.test(path);
   let page;
   let badge = '';
@@ -56,10 +58,11 @@ function App() {
     page = <VerifyPage code={decodeURIComponent(check[1])} />;
     badge = 'Certificate check';
   } else if (legal) page = legal === 'privacy' ? <PrivacyPage /> : <TermsPage />;
+  else if (investors) page = <InvestorsPage />;
   else page = <Home />;
   // Doctors and patients get visibly different colors, so it's always clear
   // which side you're looking at.
-  const isHome = !doctor && !watch && !check && !legal;
+  const isHome = !doctor && !watch && !check && !legal && !investors;
   document.body.className = doctor ? 'theme-doctor' : watch ? 'theme-patient' : 'theme-public';
   return (
     <>
@@ -76,7 +79,7 @@ function App() {
           </div>
         </div>
       </header>
-      <main className={isHome ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
+      <main className={isHome || investors ? 'home-main' : `container ${doctor || watch ? 'wide' : ''}`}>{page}</main>
       <footer className="site-footer no-print">
         <div className="site-footer-inner">
           <Wordmark small />
