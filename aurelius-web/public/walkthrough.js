@@ -1,26 +1,42 @@
 // Drives the animation on walkthrough.html.
 (function () {
   var CHAPTERS = [
-    { title: 'The doctor invites the patient', text: "In the doctor portal, the office enters the patient's name and email and chooses the procedure. The patient receives a private link that works for 48 hours." },
-    { title: "The patient confirms it's them", text: 'No account or password. A one-time code sent to their email confirms the right person is watching.' },
-    { title: 'Videos, in order, watched in full', text: "Each completed video unlocks the next. Skipping ahead is blocked, and an “I'm still watching” button confirms attention is being paid." },
-    { title: 'The doctor sees progress', text: 'The portal updates video by video. If time runs short, a reminder goes to both the doctor and the patient 12 hours before the link expires.' },
-    { title: 'A signed certificate anyone can verify', text: 'When the last video ends, a digitally signed certificate is issued. A hospital, insurer or court can check its code at aureliuscode.com.' }
+    { tab: 'Invite', title: 'The doctor invites the patient', text: "In the doctor portal, the office enters the patient's name and email and chooses the procedure. The patient receives a private link that works for 48 hours." },
+    { tab: 'Confirm', title: "The patient confirms it's them", text: 'No account or password. A one-time code sent to their email confirms the right person is watching.' },
+    { tab: 'Watch', title: 'Videos, in order, watched in full', text: "Each completed video unlocks the next. Skipping ahead is blocked, and an “I'm still watching” button confirms attention is being paid." },
+    { tab: 'Progress', title: 'The doctor sees progress', text: 'The portal updates video by video. If time runs short, a reminder goes to both the doctor and the patient 12 hours before the link expires.' },
+    { tab: 'Certificate', title: 'A signed certificate anyone can verify', text: 'When the last video ends, a digitally signed certificate is issued. A hospital, insurer or court can check its code at aureliuscode.com.' }
   ];
   var $ = function (id) { return document.getElementById(id); };
   var stage = $('stage');
 
+  // ---------- video stills: a frame from our own videos, with a drawn fallback ----------
+  var ART = '<svg viewBox="0 0 120 120" aria-hidden="true"><path d="M14 34 C30 14 52 22 60 36 C68 22 90 14 106 34 L98 52 C88 42 76 42 70 50 C66 56 54 56 50 50 C44 42 32 42 22 52 Z" fill="rgba(255,255,255,0.38)"/><g class="spin"><circle cx="60" cy="52" r="11" fill="#fff"/><path d="M56 60 L52 110 L66 110 L64 60 Z" fill="rgba(255,255,255,0.92)"/></g></svg>';
+  function fillArt(root) { (root || document).querySelectorAll('.art').forEach(function (a) { if (!a.firstChild) a.innerHTML = ART; }); }
+  fillArt();
+  fetch('/api/public/evergreen').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    var vids = (d && d.videos || []).filter(function (v) { return v.poster; });
+    if (!vids.length) return;
+    var pick = vids.filter(function (v) { return /brain/i.test(v.title); })[0] || vids[0];
+    var img = new Image();
+    img.onload = function () {
+      stage.style.setProperty('--poster', 'url("' + img.src + '")');
+      stage.classList.add('has-poster');
+    };
+    img.src = '/api/public/' + pick.poster;
+  }).catch(function () {});
+
   // ---------- sizing: scale each device to the space available ----------
   var devs = [
-    { wrap: $('wrap-laptop'), el: $('laptop'), w: 640, h: 432 },
-    { wrap: $('wrap-phone'), el: $('phone'), w: 270, h: 540 }
+    { wrap: $('wrap-laptop'), el: $('laptop'), w: 660, h: 440 },
+    { wrap: $('wrap-phone'), el: $('phone'), w: 276, h: 556 }
   ];
   function fit() {
     var avail = stage.clientWidth - 40;
-    var side = avail >= 640 * 0.82 + 270 * 0.82 + 28;
+    var side = avail >= (660 + 276) * 0.8 + 30;
     var s1, s2;
-    if (side) { s1 = s2 = Math.min(1, (avail - 28) / (640 + 270)); }
-    else { s1 = Math.min(1, avail / 640); s2 = Math.min(1, avail / 270, 0.85); }
+    if (side) { s1 = s2 = Math.min(1, (avail - 30) / (660 + 276)); }
+    else { s1 = Math.min(1, avail / 660); s2 = Math.min(1, avail / 276, 0.85); }
     [s1, s2].forEach(function (s, i) {
       var d = devs[i];
       d.el.style.transform = 'scale(' + s + ')';
@@ -46,8 +62,8 @@
   }
 
   // ---------- helpers ----------
-  function show(prefix, id) {
-    document.querySelectorAll(prefix).forEach(function (v) { v.classList.toggle('on', v.id === id); });
+  function show(sel, id) {
+    document.querySelectorAll(sel).forEach(function (v) { v.classList.toggle('on', v.id === id); });
   }
   function rel(el) {
     var s = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -60,9 +76,7 @@
     cursor.style.transform = 'translate(' + (p.x - 4) + 'px,' + (p.y - 3) + 'px)';
     await wait(ms || 750);
   }
-  async function click(el) {
-    el.classList.add('press'); await wait(160); el.classList.remove('press');
-  }
+  async function click(el) { el.classList.add('press'); await wait(160); el.classList.remove('press'); }
   async function touch(el, ms) {
     var p = rel(el);
     finger.style.opacity = 1;
@@ -74,7 +88,7 @@
   function hidePointers() { cursor.style.opacity = 0; finger.style.opacity = 0; }
   async function type(field, text, speed) {
     var tx = field.querySelector('.tx');
-    field.classList.add('focus');
+    field.classList.add('focus'); tx.classList.remove('ph');
     for (var i = 1; i <= text.length; i++) { tx.textContent = text.slice(0, i); await wait(speed || 55); }
     field.classList.remove('focus');
   }
@@ -89,22 +103,25 @@
     await wait(1150);
     env.style.opacity = 0;
   }
+  function setStatus(cls, text) { var st = $('status'); st.className = 'st ' + cls; st.textContent = text; }
   function setProgress(done) {
     $('pbar').querySelector('span').style.width = (done / 6 * 100) + '%';
     $('pbar').classList.toggle('done', done === 6);
     $('pcount').textContent = done + ' of 6 videos';
-    var st = $('status');
-    if (done === 6) { st.className = 'pill ok'; st.textContent = 'Complete'; $('hours').textContent = '—'; }
-    else if (done > 0) { st.className = 'pill blue'; st.textContent = 'Confirmed · ' + done + ' of 6'; }
+    if (done === 6) { setStatus('ok', 'Complete'); $('hours').textContent = '—'; }
+    else if (done > 0) setStatus('conf', 'Confirmed · ' + done + ' of 6');
   }
   function flashRow() { var r = $('row'); r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash'); }
   function buildList(done) {
     var html = '';
     for (var i = 1; i <= 6; i++) {
-      var cls = i <= done ? 'done' : (i === done + 1 ? 'next' : '');
-      html += '<div class="vrow ' + cls + '" id="v' + i + '"><span class="n">' + i + '</span><span>Part ' + i + ' of 6<small>' + (i <= done ? 'Complete' : i === done + 1 ? 'Ready to watch' : 'Unlocks after part ' + (i - 1)) + '</small></span><span class="lk"></span></div>';
+      var cls = i <= done ? 'done' : (i === done + 1 ? 'next' : 'locked');
+      var sub = i <= done ? 'Complete' : i === done + 1 ? 'Up next · ready to play' : 'Unlocks after the previous video';
+      html += '<div class="vrow ' + cls + '" id="v' + i + '"><div class="frame"><div class="art"></div><span class="badge">' + (i <= done ? '&#10003;' : i) + '</span></div><span class="t">Video ' + i + ' of 6<small>' + sub + '</small></span></div>';
     }
     $('vlist').innerHTML = html;
+    fillArt($('vlist'));
+    $('listtitle').textContent = 'Your videos (' + done + ' of 6 complete)';
   }
   function setPlay(frac) {
     $('fill').style.width = (frac * 100) + '%';
@@ -116,22 +133,38 @@
     var steps = Math.max(1, Math.round(ms / 50));
     for (var i = 1; i <= steps; i++) { setPlay(from + (to - from) * i / steps); await wait(ms / steps); }
   }
+  function setCode(n) {
+    var digits = '482913', html = '';
+    for (var i = 0; i < 6; i++) html += i < n ? '<span class="f">' + digits[i] + '</span>' : '<span>0</span>';
+    $('codebox').innerHTML = html;
+  }
+  function setSteps(cur) {
+    ['st1', 'st2', 'st3'].forEach(function (id, i) {
+      var el = $(id);
+      el.className = 'step' + (i + 1 < cur ? ' done' : i + 1 === cur ? ' cur' : '');
+      el.querySelector('i').innerHTML = i + 1 < cur ? '&#10003;' : String(i + 1);
+    });
+  }
 
   // ---------- states ----------
   function reset() {
-    show('.view', 'l-invite'); show('.pv', 'p-lock');
-    ['f-name', 'f-email', 'f-proc', 'f-code'].forEach(function (id) { $(id).querySelector('.tx').textContent = ''; $(id).classList.remove('focus'); });
-    $('modal').style.opacity = 1; $('toast').classList.remove('on'); $('note').classList.remove('on');
-    $('boxes').querySelectorAll('div').forEach(function (b) { b.textContent = ''; b.classList.remove('filled'); });
-    $('s2label').style.opacity = 0.35; $('okline').classList.remove('on');
+    show('.view', 'l-videos'); show('.pv', 'p-lock');
+    $('side-videos').classList.add('on'); $('side-patients').classList.remove('on');
+    ['f-name', 'f-email', 'f-code'].forEach(function (id) { $(id).querySelector('.tx').textContent = ''; $(id).classList.remove('focus'); });
+    $('f-code').classList.add('focus');
+    var proc = $('f-proc').querySelector('.tx'); proc.textContent = 'Choose a procedure'; proc.classList.add('ph');
+    $('opt').classList.remove('on'); $('modal').classList.remove('on'); $('dim').classList.remove('on');
+    $('toast').classList.remove('on'); $('note').classList.remove('on');
+    setSteps(1); $('sc1').style.display = ''; $('sc2').style.display = 'none'; setCode(0); $('okline').classList.remove('on');
     $('pbar').querySelector('span').style.width = '0'; $('pbar').classList.remove('done');
-    $('pcount').textContent = '0 of 6 videos'; $('status').className = 'pill wait'; $('status').textContent = 'Not accepted yet'; $('hours').textContent = '48 h';
+    $('pcount').textContent = '0 of 6 videos'; setStatus('wait', 'Not accepted yet'); $('hours').textContent = '48 h';
     buildList(0); setPlay(0); $('skipnote').classList.remove('on'); $('checkov').classList.remove('on'); $('ghost').style.opacity = 0;
     $('result').classList.remove('on'); hidePointers(); $('envelope').style.opacity = 0;
   }
+  function toHistory() { show('.view', 'l-history'); $('side-videos').classList.remove('on'); $('side-patients').classList.add('on'); }
   var after = [
-    function () { $('f-name').querySelector('.tx').textContent = 'Maria Lopez'; show('.view', 'l-history'); $('note').classList.add('on'); },
-    function () { show('.pv', 'p-list'); $('status').className = 'pill blue'; $('status').textContent = 'Confirmed'; $('hours').textContent = '47 h'; },
+    function () { toHistory(); $('note').classList.add('on'); },
+    function () { show('.pv', 'p-portal'); setStatus('conf', 'Confirmed'); $('hours').textContent = '47 h'; },
     function () { buildList(1); setProgress(1); show('.pv', 'p-list'); },
     function () { buildList(6); setProgress(6); show('.pv', 'p-done'); },
     function () {}
@@ -140,46 +173,54 @@
   // ---------- chapters ----------
   var scenes = [
     async function invite() {
-      await wait(600);
-      await pointTo($('f-name'));
+      await wait(500);
+      await pointTo($('l-invite-btn'), 800);
+      await click($('l-invite-btn'));
+      $('dim').classList.add('on'); $('modal').classList.add('on');
+      await wait(450);
+      await pointTo($('f-name'), 600);
       await type($('f-name'), 'Maria Lopez');
-      await pointTo($('f-email'), 500);
+      await pointTo($('f-email'), 450);
       await type($('f-email'), 'maria@example.com', 45);
-      await pointTo($('f-proc'), 500);
-      await click($('f-proc')); $('f-proc').querySelector('.tx').textContent = 'Hip Replacement';
+      await pointTo($('f-proc'), 450);
+      await click($('f-proc')); $('opt').classList.add('on');
+      await wait(500);
+      await pointTo($('opt'), 450);
+      await click($('opt'));
+      var proc = $('f-proc').querySelector('.tx'); proc.textContent = 'Hip Replacement'; proc.classList.remove('ph');
+      $('opt').classList.remove('on');
       await wait(400);
-      await pointTo($('send'), 600);
+      await pointTo($('send'), 550);
       await click($('send'));
+      $('modal').classList.remove('on'); $('dim').classList.remove('on');
       $('toast').classList.add('on');
       await fly($('send'), $('note'));
       $('note').classList.add('on');
       await wait(900);
       $('toast').classList.remove('on');
-      show('.view', 'l-history'); hidePointers();
-      await wait(1600);
+      toHistory(); hidePointers();
+      await wait(1500);
     },
     async function confirm() {
       await touch($('note'));
       show('.pv', 'p-verify');
-      await wait(900);
+      await wait(1000);
       await touch($('emailme'));
-      $('s2label').style.opacity = 1;
-      await wait(900);
-      var digits = '482913', boxes = $('boxes').querySelectorAll('div');
-      for (var i = 0; i < 6; i++) { boxes[i].textContent = digits[i]; boxes[i].classList.add('filled'); await wait(220); }
+      $('sc1').style.display = 'none'; $('sc2').style.display = ''; setSteps(2);
       finger.style.opacity = 0;
-      $('okline').classList.add('on');
-      $('status').className = 'pill blue'; $('status').textContent = 'Confirmed'; $('hours').textContent = '47 h'; flashRow();
-      await wait(1500);
-      show('.pv', 'p-list');
-      await wait(1300);
+      await wait(1000);
+      for (var i = 1; i <= 6; i++) { setCode(i); await wait(220); }
+      setSteps(3); $('okline').classList.add('on');
+      setStatus('conf', 'Confirmed'); $('hours').textContent = '47 h'; flashRow();
+      await wait(1400);
+      show('.pv', 'p-portal');
+      await wait(1600);
     },
     async function watch() {
-      await touch($('v1'));
-      $('vtitle').textContent = 'Part 1 of 6'; setPlay(0);
+      await touch($('startbtn'));
+      $('vtitle').textContent = 'Video 1 of 6'; setPlay(0);
       show('.pv', 'p-player'); finger.style.opacity = 0;
       await playTo(0, 0.28, 2200);
-      // try to skip ahead
       var g = $('ghost'), t = $('thumb');
       await touch(t, 500);
       g.style.left = '85%'; g.style.opacity = 1;
@@ -201,8 +242,6 @@
     },
     async function progress() {
       for (var d = 2; d <= 6; d++) {
-        var next = $('v' + d);
-        next.classList.add('next');
         await wait(550);
         buildList(d); setProgress(d); flashRow();
         await wait(650);
@@ -212,8 +251,8 @@
       await wait(1800);
     },
     async function certificate() {
-      await pointTo($('row'), 700);
-      await click($('row'));
+      await pointTo($('viewbtn'), 700);
+      await click($('viewbtn'));
       show('.view', 'l-cert'); hidePointers();
       await wait(3200);
       show('.view', 'l-verify');
@@ -230,7 +269,7 @@
   var chapEls = CHAPTERS.map(function (c, i) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'chap'; b.setAttribute('role', 'tab');
-    b.innerHTML = '<b>' + (i + 1) + '</b>' + ['Invite', 'Confirm', 'Watch', 'Progress', 'Certificate'][i];
+    b.innerHTML = '<b>' + (i + 1) + '</b>' + c.tab;
     b.addEventListener('click', function () { start(i); });
     $('chapters').appendChild(b);
     return b;
