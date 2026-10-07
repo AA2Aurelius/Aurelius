@@ -21,5 +21,9 @@ export default defineConfig({
       },
     },
   },
-  build: { sourcemap: false },
+  // Two pages: the app (index.html) and the animated walkthrough at /walkthrough.
+  build: {
+    sourcemap: false,
+    rollupOptions: { input: { main: 'index.html', walkthrough: 'walkthrough.html' } },
+  },
 });

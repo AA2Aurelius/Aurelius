@@ -8,8 +8,8 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <!-- An animated walkthrough of the app, shared by link (e.g. from /investors). The screens copy the real
      doctor portal and patient portal; the video stills come from the public explainer videos
-     (/api/public/evergreen). Its script is in walkthrough.js, since the site's Content-Security-Policy
-     allows no inline scripts. -->
+     (/api/public/evergreen). Built by Vite as a second page next to index.html; its script is
+     src/walkthrough.js, which plays the video with the site's own player (src/video.ts). -->
 <style>
 /* Layout: the site's blue hero band holds the doctor's laptop and the patient's phone (side by side when
    wide, stacked when narrow); the chapter caption and controls sit below on the page background. */
@@ -214,6 +214,8 @@ tr.faint td { opacity: 0.45; }
 .ptitle { font-size: 13px; font-weight: 700; color: var(--ink); }
 .player { position: relative; border-radius: 12px; overflow: hidden; background: #000; }
 .player .frame { height: 136px; }
+.player video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; opacity: 0; transition: opacity 0.4s; }
+.player.live video { opacity: 1; }
 .player .shade { position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(0,0,0,0.55)); }
 .player .art svg .spin { transform-origin: 60px 52px; animation: sway 3.2s ease-in-out infinite; }
 .paused .player .art svg .spin, .paused .kenburns { animation-play-state: paused; }
@@ -425,12 +427,13 @@ tr.faint td { opacity: 0.45; }
             <div class="phead"><span class="wordmark xs"><span class="a">A</span>urelius code</span><span class="btn teal">Patient portal</span></div>
             <div class="pbody">
               <span class="ptitle" id="vtitle">Video 1 of 6</span>
-              <div class="player">
+              <div class="player" id="player">
                 <div class="frame"><div class="art"></div></div>
+                <video id="pvideo" muted playsinline preload="none"></video>
                 <div class="shade"></div>
                 <div class="pctrl">
                   <div class="track" id="track"><div class="fill" id="fill"></div><div class="ghost" id="ghost"></div><div class="thumb" id="thumb"></div></div>
-                  <div class="times"><span id="tnow">0:00</span><span>2:00</span></div>
+                  <div class="times"><span id="tnow">0:00</span><span id="tend">2:00</span></div>
                 </div>
               </div>
               <span class="locklabel"><i></i>Locked: no skipping</span>
@@ -477,6 +480,6 @@ tr.faint td { opacity: 0.45; }
     <p class="foot">An illustration of the real flow at aureliuscode.com. The patient, email address and certificate code are examples; the video stills are from our Aurelius Code videos.</p>
   </div>
 </div>
-<script src="/walkthrough.js"></script>
+<script type="module" src="/src/walkthrough.js"></script>
 </body>
 </html>

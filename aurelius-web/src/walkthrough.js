@@ -1,4 +1,7 @@
-// Drives the animation on walkthrough.html.
+// Drives the animation on walkthrough.html. The patient's phone plays one of
+// our real explainer videos (muted) with the site's own HLS player.
+import { attachHls } from './video';
+
 (function () {
   var CHAPTERS = [
     { tab: 'Invite', title: 'The doctor invites the patient', text: "In the doctor portal, the office enters the patient's name and email and chooses the procedure. The patient receives a private link that works for 48 hours." },
@@ -10,6 +13,25 @@
   var $ = function (id) { return document.getElementById(id); };
   var stage = $('stage');
 
+  // ---------- the real video in the phone's player ----------
+  var videoSrc = null, videoLen = 120, attached = false, wantPlay = false;
+  var pvideo = $('pvideo');
+  function videoPlay() {
+    if (!videoSrc) return;
+    wantPlay = true;
+    if (!attached) { attachHls(pvideo, videoSrc); attached = true; }
+    if (!paused) pvideo.play().then(function () { $('player').classList.add('live'); }).catch(function () {});
+  }
+  function videoPause(stop) {
+    if (stop) wantPlay = false;
+    if (attached) pvideo.pause();
+  }
+  function videoStop() {
+    videoPause(true);
+    $('player').classList.remove('live');
+    if (attached) { try { pvideo.currentTime = 0; } catch (e) {} }
+  }
+
   // ---------- video stills: a frame from our own videos, with a drawn fallback ----------
   var ART = '<svg viewBox="0 0 120 120" aria-hidden="true"><path d="M14 34 C30 14 52 22 60 36 C68 22 90 14 106 34 L98 52 C88 42 76 42 70 50 C66 56 54 56 50 50 C44 42 32 42 22 52 Z" fill="rgba(255,255,255,0.38)"/><g class="spin"><circle cx="60" cy="52" r="11" fill="#fff"/><path d="M56 60 L52 110 L66 110 L64 60 Z" fill="rgba(255,255,255,0.92)"/></g></svg>';
   function fillArt(root) { (root || document).querySelectorAll('.art').forEach(function (a) { if (!a.firstChild) a.innerHTML = ART; }); }
@@ -18,6 +40,8 @@
     var vids = (d && d.videos || []).filter(function (v) { return v.poster; });
     if (!vids.length) return;
     var pick = vids.filter(function (v) { return /brain/i.test(v.title); })[0] || vids[0];
+    if (pick.playlist) videoSrc = '/api/public/' + pick.playlist;
+    if (pick.durationSeconds) videoLen = pick.durationSeconds;
     var img = new Image();
     img.onload = function () {
       stage.style.setProperty('--poster', 'url("' + img.src + '")');
@@ -126,8 +150,9 @@
   function setPlay(frac) {
     $('fill').style.width = (frac * 100) + '%';
     $('thumb').style.left = (frac * 100) + '%';
-    var secs = Math.round(frac * 120);
-    $('tnow').textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
+    var fmt = function (n) { n = Math.round(n); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+    $('tnow').textContent = fmt(frac * videoLen);
+    $('tend').textContent = fmt(videoLen);
   }
   async function playTo(from, to, ms) {
     var steps = Math.max(1, Math.round(ms / 50));
@@ -160,6 +185,7 @@
     $('pcount').textContent = '0 of 6 videos'; setStatus('wait', 'Not accepted yet'); $('hours').textContent = '48 h';
     buildList(0); setPlay(0); $('skipnote').classList.remove('on'); $('checkov').classList.remove('on'); $('ghost').style.opacity = 0;
     $('result').classList.remove('on'); hidePointers(); $('envelope').style.opacity = 0;
+    videoStop();
   }
   function toHistory() { show('.view', 'l-history'); $('side-videos').classList.remove('on'); $('side-patients').classList.add('on'); }
   var after = [
@@ -220,6 +246,7 @@
       await touch($('startbtn'));
       $('vtitle').textContent = 'Video 1 of 6'; setPlay(0);
       show('.pv', 'p-player'); finger.style.opacity = 0;
+      videoPlay();
       await playTo(0, 0.28, 2200);
       var g = $('ghost'), t = $('thumb');
       await touch(t, 500);
@@ -230,12 +257,14 @@
       $('skipnote').classList.add('on'); finger.style.opacity = 0;
       await playTo(0.28, 0.5, 2000);
       $('skipnote').classList.remove('on');
-      $('checkov').classList.add('on');
+      $('checkov').classList.add('on'); videoPause();
       await wait(1200);
       await touch($('stillbtn'));
       $('checkov').classList.remove('on'); finger.style.opacity = 0;
+      videoPlay();
       await playTo(0.5, 1, 2200);
       await wait(300);
+      videoStop();
       buildList(1); show('.pv', 'p-list');
       setProgress(1); flashRow();
       await wait(1800);
@@ -300,6 +329,7 @@
     paused = !paused;
     this.textContent = paused ? 'Play' : 'Pause';
     stage.classList.toggle('paused', paused);
+    if (paused) videoPause(); else if (wantPlay) videoPlay();
   });
   $('restart').addEventListener('click', function () {
     if (paused) { paused = false; $('playpause').textContent = 'Pause'; stage.classList.remove('paused'); }
