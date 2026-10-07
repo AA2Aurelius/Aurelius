@@ -57,6 +57,7 @@ export function InvestorsPage() {
           </p>
           <div className="deck-cover-actions">
             <a className="button mint" href="#demo">Try the live demo</a>
+            <a className="button ghost" href="/walkthrough" target="_blank" rel="noopener">Watch the walkthrough</a>
             <a className="button ghost" href="/" target="_blank" rel="noopener">aureliuscode.com</a>
           </div>
         </div>
@@ -103,6 +104,9 @@ export function InvestorsPage() {
             <li><strong>Videos, in order.</strong> Each completed video unlocks the next. Skipping ahead is blocked throughout, and an "I'm still watching" button that must be pressed confirms attention is being paid.</li>
             <li><strong>Signed certificate.</strong> Issued automatically; the doctor sees it, and anyone can check it with its code.</li>
           </ol>
+          <p className="deck-lead">
+            See it in motion: <a href="/walkthrough" target="_blank" rel="noopener">the 45-second walkthrough</a>.
+          </p>
         </Slide>
       </div>
 
