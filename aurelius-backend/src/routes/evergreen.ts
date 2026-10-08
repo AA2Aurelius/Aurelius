@@ -29,13 +29,17 @@ async function initKey(env: Env, t: VodTables, id: string): Promise<string | nul
 
 const noGuard: MiddlewareHandler<AppEnv> = (_c, next) => next();
 
+export function vttResponse(vtt: string): Response {
+  return new Response(vtt, { headers: { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'private, no-store' } });
+}
+
 // Registers GET {base}, {base}/:videoId/playlist.m3u8, .../init.mp4 and
 // .../seg/:n.m4s on `app`, each behind `guard`.
 export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHandler<AppEnv> = noGuard) {
   app.get(base, guard, async (c) => {
     const { results } = await c.env.DB.prepare(
-      `SELECT id, title, order_index, duration_seconds, poster_r2_key FROM evergreen_videos ORDER BY order_index`
-    ).all<EvergreenVideo & { poster_r2_key: string | null }>();
+      `SELECT id, title, order_index, duration_seconds, poster_r2_key, captions_vtt IS NOT NULL AS has_captions FROM evergreen_videos ORDER BY order_index`
+    ).all<EvergreenVideo & { poster_r2_key: string | null; has_captions: number }>();
     return c.json({
       videos: results.map((v) => ({
         id: v.id,
@@ -44,6 +48,7 @@ export function registerEvergreenRoutes(app: Hono<AppEnv>, base: string, guard: 
         durationSeconds: v.duration_seconds,
         playlist: `evergreen/${v.id}/playlist.m3u8`,
         poster: v.poster_r2_key ? `evergreen/${v.id}/poster.jpg` : null,
+        captions: v.has_captions ? `evergreen/${v.id}/captions.vtt` : null,
       })),
     });
   });
@@ -79,6 +84,11 @@ function registerVodRoutes(app: Hono<AppEnv>, base: string, guard: MiddlewareHan
     const row = await c.env.DB.prepare(`SELECT poster_r2_key FROM ${t.videos} WHERE id = ?`).bind(c.req.param('videoId') ?? '').first<{ poster_r2_key: string | null }>();
     const res = row?.poster_r2_key && (await serveR2Object(c.env.VIDEOS, row.poster_r2_key, c.req.raw));
     return res || c.json({ error: 'Not found.' }, 404);
+  });
+
+  app.get(`${base}/:videoId/captions.vtt`, guard, async (c) => {
+    const row = await c.env.DB.prepare(`SELECT captions_vtt FROM ${t.videos} WHERE id = ?`).bind(c.req.param('videoId') ?? '').first<{ captions_vtt: string | null }>();
+    return row?.captions_vtt ? vttResponse(row.captions_vtt) : c.json({ error: 'Not found.' }, 404);
   });
 
   app.get(`${base}/:videoId/seg/:file`, guard, async (c) => {

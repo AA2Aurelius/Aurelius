@@ -15,6 +15,7 @@ export interface PortalVideo {
   question_count: number;
   resume_seconds: number;   // where an unfinished video picks up; 0 = from the start
   poster: string | null;
+  captions: string | null;  // WebVTT captions, when the video has them
 }
 
 export interface PortalData {
@@ -227,7 +228,7 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
                   <div className="video-meta">
                     <span className="video-title">{v.title}</span>
                     <span className="video-when">
-                      {formatDuration(v.duration_seconds)} ·{' '}
+                      {formatDuration(v.duration_seconds)}{v.captions ? <span className="cc-badge" title="Captions available">CC</span> : null} ·{' '}
                       {v.complete ? (
                         <span className="state-done">✓ Complete</span>
                       ) : v.questions_pending ? (

@@ -73,7 +73,7 @@ export function WatchApp({ token }: { token: string }) {
 
   switch (view.kind) {
     case 'evergreen':
-      return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} poster={view.video.poster && `${base}/${view.video.poster}`} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
+      return <PlainPlayer title={view.video.title} src={`${base}/${view.video.playlist}`} poster={view.video.poster && `${base}/${view.video.poster}`} captions={view.video.captions && `${base}/${view.video.captions}`} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
     case 'questions':
       return (
         <Questions
