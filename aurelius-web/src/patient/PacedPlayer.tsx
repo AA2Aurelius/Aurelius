@@ -21,6 +21,8 @@ export interface PrescribedVideo {
   order_index: number;
   duration_seconds: number;
   poster?: string | null;
+  question_count?: number;  // questions to answer after this video
+  complete?: boolean;       // already watched and understood (a rewatch)
 }
 
 interface CheckInfo { id: string; prompt: string; expiresAt: string }
@@ -382,7 +384,16 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
               <p className="done-mark" aria-hidden="true">✓</p>
               <p id="done-title" className="done-title">Video {video.order_index} of {total} complete</p>
               <p className="done-sub">{video.title}</p>
-              {nextTitle ? (
+              {(video.question_count ?? 0) > 0 && !video.complete ? (
+                <>
+                  <p className="done-next">
+                    <span className="done-next-label">Before the next video</span>
+                    <strong>{video.question_count} short question{video.question_count === 1 ? '' : 's'} about this video</strong>
+                  </p>
+                  <button className="button" onClick={onNext} autoFocus>Answer the questions</button>
+                  <button className="link-button" onClick={onDone}>Back to your videos</button>
+                </>
+              ) : nextTitle ? (
                 <>
                   <p className="done-next">
                     <span className="done-next-label">Up next, now unlocked</span>
@@ -393,8 +404,8 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
                 </>
               ) : (
                 <>
-                  <p className="done-next"><strong>That was the last video. Your certificate is ready.</strong></p>
-                  <button className="button" onClick={onCertificate} autoFocus>View your certificate</button>
+                  <p className="done-next"><strong>That was the last video.</strong> One last step: confirm you understand, and your certificate is issued.</p>
+                  <button className="button" onClick={onCertificate} autoFocus>Continue</button>
                   <button className="link-button" onClick={onDone}>Back to your videos</button>
                 </>
               )}

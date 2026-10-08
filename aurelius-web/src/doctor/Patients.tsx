@@ -123,6 +123,7 @@ export function Patients() {
                     <td className="num">{i + 1}</td>
                     <td>
                       <a href={`/doctor/patients/${encodeURIComponent(r.id)}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); open(r); }} className="h-name">{r.patient_name}</a>
+                      {(r.open_questions ?? 0) > 0 && <span className="h-question" title="The patient sent a question">💬 Has a question</span>}
                       <span className="h-email">{r.patient_email}</span>
                     </td>
                     <td>{formatDate(r.created_at)}</td>

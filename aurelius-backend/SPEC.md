@@ -126,6 +126,21 @@ Public:
   entered (10 min expiry, 5 guesses, 60 s resend cooldown, 5 per hour).
   The certificate records this as "verified by one-time code sent to
   j***@example.com" — proof of control of that inbox.
+- **Understanding questions:** after each video the patient answers its
+  multiple-choice questions (written by our surgical consultants, loaded
+  with `npm run questions -- --file questions.csv --remote`; see
+  `questions-template.csv`). A wrong answer shows an explanation and the
+  patient tries again; the next video unlocks only once every question is
+  answered correctly (`video_progress.understood_at`). A video without
+  questions is understood as soon as it is watched. Every answer is stored
+  and logged (`question_answered`). Correct answers never leave the server.
+- **Closing acknowledgment:** after the last video the patient ticks a
+  statement that they understand (versioned in `src/understanding.ts`) and
+  may send the doctor a question. The doctor is emailed that a question is
+  waiting (not its text) and reads it in the portal. The certificate
+  (version 3) records each video's questions and attempts, and the
+  acknowledgment; it is issued only after it. Version 2 certificates stay
+  valid.
 - **Server-paced playback (completion):** videos are packaged into 4 s
   HLS chunks (`npm run package-video`). How far playback may get
   (`allowed_ms`) grows only with real time between heartbeats, and only

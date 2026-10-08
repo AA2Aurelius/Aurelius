@@ -18,7 +18,9 @@ export interface CertificateResponse {
       duration_seconds: number;
       completed_at: string;
       watch: { credited_seconds: number; attention_checks_passed: number; seek_blocked: number; pauses: number };
+      understanding?: { questions: number; attempts: number; first_try_correct: number };
     }>;
+    acknowledgment?: { statement: string; acknowledged_at: string; asked_doctor_a_question: boolean };
     total_seek_attempts: number;
     total_seek_blocked: number;
     audit_log: { event_count: number };
@@ -67,7 +69,8 @@ export function CertificateView({ load, backLabel, onBack }: {
         <hr className="cert-rule" />
         <p className="cert-lead">This certifies that</p>
         <p className="cert-name">{c.patient.name}</p>
-        <p className="cert-lead">watched every video prescribed for</p>
+        <p className="cert-lead">{c.acknowledgment ? 'watched every video, answered its questions, and confirmed they understand' : 'watched every video prescribed for'}</p>
+        {c.acknowledgment && <p className="cert-lead">the information prescribed for</p>}
         <p className="cert-procedure">{c.procedure.name}</p>
         <p className="muted">
           Prescribed by {c.prescribed_by.name}. Completed {formatDateTime(c.completed_at)}.
@@ -75,7 +78,7 @@ export function CertificateView({ load, backLabel, onBack }: {
 
         <table className="cert-table">
           <thead>
-            <tr><th>#</th><th>Video</th><th>Length</th><th>Completed</th><th>Checks passed</th></tr>
+            <tr><th>#</th><th>Video</th><th>Length</th><th>Completed</th><th>Checks passed</th>{c.acknowledgment && <th>Questions</th>}</tr>
           </thead>
           <tbody>
             {c.videos.map((v) => (
@@ -85,6 +88,9 @@ export function CertificateView({ load, backLabel, onBack }: {
                 <td>{formatDuration(v.duration_seconds)}</td>
                 <td>{formatDateTime(v.completed_at)}</td>
                 <td>{v.watch.attention_checks_passed}</td>
+                {c.acknowledgment && (
+                  <td>{v.understanding?.questions ? `${v.understanding.questions} of ${v.understanding.questions} correct` : '—'}</td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -98,6 +104,21 @@ export function CertificateView({ load, backLabel, onBack }: {
             Each video was released by the server no faster than real time, so it could not be skipped. Skip attempts:{' '}
             {c.total_seek_attempts} stopped by the player, {c.total_seek_blocked} refused by the server.
           </dd>
+          {c.acknowledgment && (
+            <>
+              <dt>Understanding</dt>
+              <dd>
+                After each video the patient answered questions on its key points; every question was answered correctly before
+                the next video unlocked ({c.videos.reduce((n, v) => n + (v.understanding?.first_try_correct ?? 0), 0)} of{' '}
+                {c.videos.reduce((n, v) => n + (v.understanding?.questions ?? 0), 0)} right the first time).
+              </dd>
+              <dt>Confirmed</dt>
+              <dd>
+                “{c.acknowledgment.statement}” · {formatDateTime(c.acknowledgment.acknowledged_at)}
+                {c.acknowledgment.asked_doctor_a_question ? ' · The patient sent their doctor a question.' : ''}
+              </dd>
+            </>
+          )}
           <dt>Record</dt>
           <dd>Signed (Ed25519, key {c.signature.key_id}); audit log of {c.audit_log.event_count} events.</dd>
         </dl>

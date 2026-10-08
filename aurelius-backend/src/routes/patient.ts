@@ -9,6 +9,7 @@ import { turnstilePasses } from '../turnstile';
 import { AppEnv, getPrescribedVideo, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
 import { registerEvergreenRoutes } from './evergreen';
 import { registerPlaybackRoutes } from './playback';
+import { ACKNOWLEDGMENT, registerUnderstandingRoutes } from '../understanding';
 import { serveR2Object } from '../stream';
 
 // Patient routes, mounted at /api/watch. The link token identifies the
@@ -42,7 +43,8 @@ patient.get('/:token', async (c) => {
   const proc = await c.env.DB.prepare(`SELECT name FROM procedures WHERE id = ?`).bind(p.procedure_id).first<{ name: string }>();
   const doctor = await c.env.DB.prepare(`SELECT name FROM doctors WHERE id = ?`).bind(p.doctor_id).first<{ name: string }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at,
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at, vp.understood_at,
+            (SELECT COUNT(*) FROM video_questions q WHERE q.video_id = v.id AND q.retired_at IS NULL) AS question_count,
             (SELECT pb.allowed_ms FROM playback_sessions pb
                WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND pb.completed_at IS NULL
                ORDER BY pb.created_at DESC LIMIT 1) AS resume_ms
@@ -50,18 +52,31 @@ patient.get('/:token', async (c) => {
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
   ).bind(p.id).all<any>();
 
-  // A video is unlocked once every earlier one is complete.
+  // A video is done once it is watched in full and its questions are
+  // answered; each one unlocks the next.
   let allBeforeDone = true;
   const videos = results.map((v) => {
     const unlocked = allBeforeDone;
-    allBeforeDone = allBeforeDone && !!v.completed_at;
-    const { poster_r2_key, resume_ms, ...rest } = v;
+    allBeforeDone = allBeforeDone && !!v.understood_at;
+    const { poster_r2_key, resume_ms, understood_at, ...rest } = v;
     // Where an unfinished video will pick up (the player resumes there).
     const resumeSeconds = !v.completed_at && resume_ms > 0 ? Math.min(v.duration_seconds, Math.floor(resume_ms / 1000)) : 0;
-    return { ...rest, unlocked, complete: !!v.completed_at, resume_seconds: resumeSeconds, poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null };
+    return {
+      ...rest,
+      unlocked,
+      watched: !!v.completed_at,
+      complete: !!understood_at,
+      questions_pending: !!v.completed_at && !understood_at,
+      resume_seconds: resumeSeconds,
+      poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null,
+    };
   });
+  const acknowledged = await c.env.DB.prepare(`SELECT acknowledged_at FROM prescriptions WHERE id = ?`).bind(p.id).first<{ acknowledged_at: string | null }>();
 
-  return c.json({ verified: true, patientName: p.patient_name, procedureName: proc?.name, doctorName: doctor?.name ?? null, hoursLeft, certified: c.get('certified'), videos });
+  return c.json({
+    verified: true, patientName: p.patient_name, procedureName: proc?.name, doctorName: doctor?.name ?? null, hoursLeft, certified: c.get('certified'), videos,
+    acknowledged: !!acknowledged?.acknowledged_at, acknowledgment: ACKNOWLEDGMENT.statement,
+  });
 });
 
 // ------------------------------------------------------- one-time codes
@@ -199,6 +214,8 @@ patient.get('/:token/video/:videoId/poster.jpg', requirePatient, async (c) => {
 // Playback start, playlist, chunks, heartbeats, attention checks and
 // server-side completion.
 registerPlaybackRoutes(patient);
+// Understanding questions after each video, and the closing acknowledgment.
+registerUnderstandingRoutes(patient);
 // The evergreen explainer videos, for any verified patient.
 registerEvergreenRoutes(patient, '/:token/evergreen', requirePatient);
 
@@ -207,7 +224,7 @@ registerEvergreenRoutes(patient, '/:token/evergreen', requirePatient);
 patient.get('/:token/certificate', requirePatient, async (c) => {
   const p = c.get('prescription');
   const row = (await getCertificateRow(c.env, p.id)) ?? (await issueCertificateIfComplete(c.env, p.id));
-  if (!row) return c.json({ error: 'Not all videos are complete yet.' }, 409);
+  if (!row) return c.json({ error: 'Not finished yet: every video, its questions and the final confirmation come first.' }, 409);
   return c.json({
     certificate: JSON.parse(row.payload),
     // The exact signed bytes: POST /api/verify with { payload, signature } to check them.

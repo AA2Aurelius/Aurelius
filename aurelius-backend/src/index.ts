@@ -69,7 +69,7 @@ export async function runReminderSweep(env: Env): Promise<void> {
      JOIN procedures proc ON proc.id = pr.procedure_id
      WHERE pr.reminder_12h_sent_at IS NULL AND pr.revoked_at IS NULL
        AND pr.expires_at > ? AND pr.expires_at <= ?
-       AND EXISTS (SELECT 1 FROM video_progress vp WHERE vp.prescription_id = pr.id AND vp.completed_at IS NULL)`
+       AND NOT EXISTS (SELECT 1 FROM certificates cert WHERE cert.prescription_id = pr.id)`
   ).bind(now, hoursFromNow(threshold)).all<any>();
 
   for (const p of results) {

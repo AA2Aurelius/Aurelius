@@ -102,11 +102,12 @@ export async function getPrescribedVideo(env: Env, prescriptionId: string, video
   ).bind(prescriptionId, videoId).first<PrescribedVideo>();
 }
 
-// Unlocked once every earlier video in the set is complete.
+// Unlocked once every earlier video in the set is watched and understood
+// (its questions answered).
 export async function isUnlocked(env: Env, prescriptionId: string, orderIndex: number): Promise<boolean> {
   const row = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM video_progress vp JOIN videos v ON v.id = vp.video_id
-     WHERE vp.prescription_id = ? AND v.order_index < ? AND vp.completed_at IS NULL`
+     WHERE vp.prescription_id = ? AND v.order_index < ? AND vp.understood_at IS NULL`
   ).bind(prescriptionId, orderIndex).first<{ n: number }>();
   return (row?.n ?? 1) === 0;
 }

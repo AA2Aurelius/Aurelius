@@ -18,6 +18,7 @@ export interface PatientRow {
   videos_total: number;
   certified_at: string | null;
   hours_left: number;
+  open_questions?: number;  // questions from the patient not yet marked answered
 }
 
 // A procedure's thumbnail comes from its first video's preview playlist.

@@ -1,5 +1,6 @@
 import { CHAIN_ALGORITHM, logEvent, verifyChain } from './audit';
 import { evidenceHashes } from './evidence';
+import { ACKNOWLEDGMENT, understandingByVideo } from './understanding';
 import { Env, base64url, canonicalJson, fromBase64url, maskEmail, nowIso, randomBytes, sha256Hex, uuid } from './lib';
 
 // Certificates are issued once per prescription, signed with Ed25519, and
@@ -132,8 +133,10 @@ export function normalizeVerificationCode(input: string): string | null {
 
 // ------------------------------------------------------------ certificate
 
+// Version 3 added the understanding questions and the closing
+// acknowledgment; version 2 certificates (without them) stay valid.
 export interface CertificatePayload {
-  version: 2;
+  version: 2 | 3;
   certificate_id: string;
   verification_code: string;
   prescription_id: string;
@@ -165,7 +168,11 @@ export interface CertificatePayload {
       attention_checks_passed: number;
       attention_checks_missed: number;
     };
+    // Version 3: the questions after this video, all eventually answered correctly.
+    understanding?: { questions: number; attempts: number; first_try_correct: number };
   }>;
+  // Version 3: what the patient confirmed at the end.
+  acknowledgment?: { statement: string; statement_version: number; acknowledged_at: string; asked_doctor_a_question: boolean };
   total_seek_attempts: number;       // reported by the player
   total_seek_blocked: number;        // refused by the server
   audit_log: { algorithm: string; event_count: number; head_hash: string };
@@ -186,7 +193,8 @@ export async function getCertificateRow(env: Env, prescriptionId: string): Promi
   return env.DB.prepare(`SELECT * FROM certificates WHERE prescription_id = ?`).bind(prescriptionId).first<CertificateRow>();
 }
 
-// Issues the certificate if every video in the set is complete. Idempotent:
+// Issues the certificate if every video in the set is watched, its
+// questions are answered, and the patient has acknowledged. Idempotent:
 // returns the existing certificate if one was already issued, or null if
 // the set isn't finished yet.
 export async function issueCertificateIfComplete(env: Env, prescriptionId: string): Promise<CertificateRow | null> {
@@ -194,16 +202,17 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
   if (existing) return existing;
 
   const p = await env.DB.prepare(
-    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.procedure_id, proc.name AS procedure_name, d.id AS doctor_id, d.name AS doctor_name
+    `SELECT pr.id, pr.patient_name, pr.patient_email, pr.procedure_id, pr.acknowledged_at, proc.name AS procedure_name, d.id AS doctor_id, d.name AS doctor_name,
+            (SELECT COUNT(*) FROM patient_questions pq WHERE pq.prescription_id = pr.id) AS questions_asked
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
      JOIN doctors d ON d.id = pr.doctor_id
      WHERE pr.id = ?`
   ).bind(prescriptionId).first<any>();
-  if (!p) return null;
+  if (!p || !p.acknowledged_at) return null;
 
   const { results: progress } = await env.DB.prepare(
-    `SELECT v.id AS video_id, v.title, v.order_index, v.duration_seconds, vp.completed_at, vp.seek_attempts, vp.pause_count,
+    `SELECT v.id AS video_id, v.title, v.order_index, v.duration_seconds, vp.completed_at, vp.understood_at, vp.seek_attempts, vp.pause_count,
             pb.id AS playback_id, pb.created_at AS started_at, pb.credited_ms, pb.hidden_ms, pb.pauses, pb.seek_blocked,
             (SELECT COUNT(*) FROM attention_checks ac WHERE ac.playback_id = pb.id AND ac.outcome = 'passed') AS checks_passed,
             (SELECT COUNT(*) FROM attention_checks ac WHERE ac.playback_id = pb.id AND ac.outcome = 'missed') AS checks_missed
@@ -211,7 +220,7 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
      LEFT JOIN playback_sessions pb ON pb.id = vp.completed_playback_id
      WHERE vp.prescription_id = ? ORDER BY v.order_index`
   ).bind(prescriptionId).all<any>();
-  if (progress.length === 0 || progress.some((r) => !r.completed_at)) return null;
+  if (progress.length === 0 || progress.some((r) => !r.completed_at || !r.understood_at)) return null;
   // Every completion must come from a server-paced playback.
   if (progress.some((r) => !r.playback_id)) throw new Error(`prescription ${prescriptionId} has a completion without a playback record`);
 
@@ -223,12 +232,13 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
   const chain = await verifyChain(env, prescriptionId);
   if (!chain.ok) throw new Error(`refusing to certify prescription ${prescriptionId}: audit log ${chain.error}`);
 
+  const understanding = await understandingByVideo(env, prescriptionId);
   const keys = await signingKeys(env);
   const id = uuid();
   const code = newVerificationCode();
   const issuedAt = nowIso();
   const payload: CertificatePayload = {
-    version: 2,
+    version: 3,
     certificate_id: id,
     verification_code: formatVerificationCode(code),
     prescription_id: prescriptionId,
@@ -260,7 +270,14 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
         attention_checks_passed: r.checks_passed,
         attention_checks_missed: r.checks_missed,
       },
+      understanding: understanding.get(r.video_id) ?? { questions: 0, attempts: 0, first_try_correct: 0 },
     })),
+    acknowledgment: {
+      statement: ACKNOWLEDGMENT.statement,
+      statement_version: ACKNOWLEDGMENT.version,
+      acknowledged_at: p.acknowledged_at,
+      asked_doctor_a_question: p.questions_asked > 0,
+    },
     total_seek_attempts: progress.reduce((sum, r) => sum + r.seek_attempts, 0),
     total_seek_blocked: progress.reduce((sum, r) => sum + r.seek_blocked, 0),
     audit_log: { algorithm: CHAIN_ALGORITHM, event_count: chain.count, head_hash: chain.headHash },
