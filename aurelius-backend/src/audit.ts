@@ -25,6 +25,10 @@ export type EventType =
   | 'attention_check_missed'
   | 'playback_completed'
   | 'complete'
+  | 'question_answered'
+  | 'understood'
+  | 'acknowledged'
+  | 'patient_question'
   | 'certificate_issued'
   | 'reminder_12h';
 

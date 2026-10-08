@@ -239,9 +239,22 @@ export async function playVideo(client: Client, token: string, videoId: string, 
 }
 
 // Watches a video start to finish; returns the final heartbeat response.
-export async function watchAndComplete(client: Client, token: string, _prescriptionId: string, videoId: string) {
+// Watches a video to completion. Once the last video is done (and the set
+// has no unanswered questions), also gives the closing acknowledgment, as a
+// patient would, so the certificate is issued. Pass { acknowledge: false }
+// to stop before it.
+export async function watchAndComplete(client: Client, token: string, prescriptionId: string, videoId: string, opts: { acknowledge?: boolean } = {}) {
   const { state } = await playVideo(client, token, videoId);
+  if (state.completed && opts.acknowledge !== false) {
+    const open = await env.DB.prepare(`SELECT COUNT(*) AS n FROM video_progress WHERE prescription_id = ? AND understood_at IS NULL`)
+      .bind(prescriptionId).first<{ n: number }>();
+    if (open?.n === 0) await acknowledge(client, token);
+  }
   return new Response(JSON.stringify(state), { status: state.completed ? 200 : 409 });
+}
+
+export async function acknowledge(client: Client, token: string, question?: string) {
+  return client.post(`/api/watch/${token}/acknowledge`, { understand: true, ...(question ? { question } : {}) });
 }
 
 export async function events(prescriptionId: string) {

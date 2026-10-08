@@ -1,6 +1,7 @@
 import type { Context, Hono } from 'hono';
 import { logEvent, prepareEvent, withChainRetry } from '../audit';
 import { issueCertificateIfComplete } from '../certificate';
+import { markUnderstoodIfReady } from '../understanding';
 import { evidenceHashes } from '../evidence';
 import { clientIp, nowIso, uuid } from '../lib';
 import {
@@ -172,6 +173,8 @@ async function completePlayback(c: Ctx, pb: Playback): Promise<void> {
   );
 
   try {
+    // A video with no questions is understood as soon as it is watched.
+    await markUnderstoodIfReady(c.env, pb.prescription_id, pb.video_id, ip);
     await issueCertificateIfComplete(c.env, pb.prescription_id);
   } catch (err) {
     // Completion stands; issuance is retried on the next certificate request.

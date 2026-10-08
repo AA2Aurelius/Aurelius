@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { accrue, pickCheckTimes, releasedThrough } from '../src/playback';
-import { Client, INIT_BYTES, advance, env, events, playVideo, prescribe, segmentBytes, seedProcedure, verifiedPatient } from './helpers';
+import { Client, INIT_BYTES, acknowledge, advance, env, events, playVideo, prescribe, segmentBytes, seedProcedure, verifiedPatient } from './helpers';
 
 async function start(client: Client, token: string, videoId: string) {
   const res = await client.post(`/api/watch/${token}/video/${videoId}/playback`);
@@ -224,7 +224,11 @@ describe('completion', () => {
     expect(row.completed_playback_id).toBe(playbackId);
 
     const types = (await events(s.prescriptionId)).map((e) => e.event_type);
-    expect(types).toEqual(expect.arrayContaining(['playback_started', 'attention_check_passed', 'playback_completed', 'complete', 'certificate_issued']));
+    expect(types).toEqual(expect.arrayContaining(['playback_started', 'attention_check_passed', 'playback_completed', 'complete']));
+    // The certificate waits for the patient's closing acknowledgment.
+    expect(types).not.toContain('certificate_issued');
+    expect((await acknowledge(p, s.token)).status).toBe(200);
+    expect((await events(s.prescriptionId)).map((e) => e.event_type)).toEqual(expect.arrayContaining(['acknowledged', 'certificate_issued']));
     const done = (await events(s.prescriptionId)).find((e) => e.event_type === 'playback_completed');
     expect(JSON.parse(done.meta)).toMatchObject({ playback: playbackId, segments_served: 15, attention_checks_passed: 2, attention_checks_missed: 0 });
     expect(JSON.parse(done.meta).credited_ms).toBe(60_000);
@@ -309,6 +313,7 @@ describe('attention checks', () => {
     expect(done.playbackId).toBe(run.playbackId);
     expect(done.state.completed).toBe(true);
 
+    await acknowledge(p, s.token);
     const cert = (await (await p.fetch(`/api/watch/${s.token}/certificate`)).json()) as any;
     expect(cert.certificate.videos[0].watch.attention_checks_passed).toBe(2);
     expect(cert.certificate.videos[0].watch.attention_checks_missed).toBeGreaterThanOrEqual(1);

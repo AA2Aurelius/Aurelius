@@ -9,7 +9,10 @@ export interface PortalVideo {
   order_index: number;
   duration_seconds: number;
   unlocked: boolean;
-  complete: boolean;
+  watched: boolean;            // watched in full
+  complete: boolean;           // watched and its questions answered: unlocks the next
+  questions_pending: boolean;  // watched, questions still to answer
+  question_count: number;
   resume_seconds: number;   // where an unfinished video picks up; 0 = from the start
   poster: string | null;
 }
@@ -22,9 +25,11 @@ export interface PortalData {
   hoursLeft: number;
   certified: boolean;
   videos: PortalVideo[];
+  acknowledged: boolean;  // the closing "I understand" step is done
+  acknowledgment: string; // its wording
 }
 
-export function Portal({ data, evergreen, evergreenBase: base, player, playingId, onPlay, onPlayEvergreen, onCertificate }: {
+export function Portal({ data, evergreen, evergreenBase: base, player, playingId, onPlay, onQuestions, onAcknowledge, onPlayEvergreen, onCertificate }: {
   data: PortalData;
   // The video being watched, shown in the main area in place of "Up next".
   player?: ReactNode;
@@ -32,6 +37,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
   evergreenBase: string;
   evergreen: EvergreenVideo[];
   onPlay: (v: PortalVideo) => void;
+  onQuestions: (v: PortalVideo) => void;
+  onAcknowledge: () => void;
   onPlayEvergreen: (v: EvergreenVideo) => void;
   onCertificate: () => void;
 }) {
@@ -39,6 +46,9 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
   const expired = data.hoursLeft <= 0;
   const firstName = data.patientName.split(/\s+/)[0];
   const next = !data.certified && !expired ? data.videos.find((v) => v.unlocked && !v.complete) : undefined;
+  // Every video watched and understood; only the closing confirmation is left.
+  const lastStep = !data.certified && !expired && !next && data.videos.length > 0 && data.videos.every((v) => v.complete);
+  const open = (v: PortalVideo) => (v.questions_pending ? onQuestions(v) : onPlay(v));
 
   return (
     <div className="stack-lg">
@@ -51,7 +61,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
         </p>
         {!data.certified && !player && (
           <p className="cert-required" role="note">
-            <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video.
+            <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video
+            and answered its short questions.
           </p>
         )}
       </header>
@@ -82,7 +93,27 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
         )
       )}
 
-      {!player && next && (
+      {!player && lastStep && (
+        <section className="continue-card" aria-labelledby="last-title">
+          <div className="continue-meta">
+            <p id="last-title" className="continue-kicker">One last step</p>
+            <p className="continue-title">All {data.videos.length} videos done. Confirm you understand, and your certificate is issued.</p>
+          </div>
+          <button className="button big" onClick={onAcknowledge}>Continue to my certificate</button>
+        </section>
+      )}
+      {!player && next && next.questions_pending && (
+        <section className="continue-card" aria-labelledby="continue-title">
+          <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} small label={`Questions about video ${next.order_index}`} onClick={() => onQuestions(next)} />
+          <div className="continue-meta">
+            <p id="continue-title" className="continue-kicker">Quick questions</p>
+            <p className="continue-title">Video {next.order_index} of {data.videos.length}: {next.title}</p>
+            <p className="continue-sub">You've watched it. Answer {next.question_count} short question{next.question_count === 1 ? '' : 's'} to unlock the next video.</p>
+          </div>
+          <button className="button big" onClick={() => onQuestions(next)}>Answer the questions</button>
+        </section>
+      )}
+      {!player && next && !next.questions_pending && (
         <section className="continue-card" aria-labelledby="continue-title">
           <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} small label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
           <div className="continue-meta">
@@ -135,7 +166,7 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
 
       <div className="watch-layout">
         <div className="watch-main stack-lg">
-          {player ?? (next && (
+          {player ?? (next && !next.questions_pending && (
             <section className="up-next" aria-label="Up next">
               <Thumb src={null} poster={next.poster && `${base}/${next.poster}`} label={`Play video ${next.order_index}: ${next.title}`} onClick={() => onPlay(next)} />
               <div className="up-next-meta">
@@ -163,8 +194,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
               </>
             )}
             <p className="muted">
-              Watch all {data.videos.length} in order. Each one unlocks the next, and your certificate is ready when the last one
-              is done.
+              Watch all {data.videos.length} in order and answer the short questions after each. Each one unlocks the next, and
+              your certificate is ready once you confirm you understand.
             </p>
           </div>
           <div className={`info-timer ${data.certified ? 'done' : expired ? 'expired' : ''}`}>
@@ -199,6 +230,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
                       {formatDuration(v.duration_seconds)} ·{' '}
                       {v.complete ? (
                         <span className="state-done">✓ Complete</span>
+                      ) : v.questions_pending ? (
+                        <span className="state-next">Watched · {v.question_count} question{v.question_count === 1 ? '' : 's'} to answer</span>
                       ) : now ? (
                         <span className="state-now">Playing now</span>
                       ) : isNext && v.resume_seconds > 0 ? (
@@ -213,8 +246,8 @@ export function Portal({ data, evergreen, evergreenBase: base, player, playingId
                     </span>
                   </div>
                   {v.unlocked && !expired && !now && (
-                    <button className={`button small ${v.complete ? 'secondary' : ''}`} onClick={() => onPlay(v)}>
-                      {v.complete ? 'Watch again' : isNext && v.resume_seconds > 0 ? 'Continue' : isNext ? 'Play next' : 'Watch'}
+                    <button className={`button small ${v.complete ? 'secondary' : ''}`} onClick={() => open(v)}>
+                      {v.complete ? 'Watch again' : v.questions_pending ? 'Answer questions' : isNext && v.resume_seconds > 0 ? 'Continue' : isNext ? 'Play next' : 'Watch'}
                     </button>
                   )}
                 </li>

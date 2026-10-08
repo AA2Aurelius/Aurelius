@@ -35,7 +35,9 @@ describe('certificate', () => {
     expect(c.patient.identity_verification.destination).toMatch(/\*\*\*@mail\.test$/);
     expect(c.videos).toHaveLength(2);
     expect(c.verification_level).toBe('server-paced-v1');
-    expect(c.version).toBe(2);
+    expect(c.version).toBe(3);
+    expect(c.acknowledgment).toMatchObject({ statement_version: 1, asked_doctor_a_question: false });
+    expect(c.videos[0].understanding).toEqual({ questions: 0, attempts: 0, first_try_correct: 0 });
     for (const v of c.videos) {
       expect(v.watch.credited_seconds).toBeGreaterThanOrEqual(v.duration_seconds);
       expect(v.watch.wall_seconds).toBeGreaterThanOrEqual(v.duration_seconds);

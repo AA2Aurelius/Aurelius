@@ -112,9 +112,10 @@ doctor.get('/patients', async (c) => {
             pr.procedure_id, proc.name AS procedure_name,
             (SELECT MIN(ps.created_at) FROM patient_sessions ps WHERE ps.prescription_id = pr.id) AS confirmed_at,
             (SELECT COUNT(*) FROM video_progress vp
-               WHERE vp.prescription_id = pr.id AND vp.completed_at IS NOT NULL) AS videos_done,
+               WHERE vp.prescription_id = pr.id AND vp.understood_at IS NOT NULL) AS videos_done,
             (SELECT COUNT(*) FROM video_progress vp WHERE vp.prescription_id = pr.id) AS videos_total,
-            (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at
+            (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at,
+            (SELECT COUNT(*) FROM patient_questions pq WHERE pq.prescription_id = pr.id AND pq.answered_at IS NULL) AS open_questions
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
      WHERE pr.doctor_id = ? AND (pr.archived_at IS NOT NULL) = ?
@@ -128,8 +129,9 @@ doctor.get('/patients', async (c) => {
 doctor.get('/prescriptions/:id', async (c) => {
   const p = await c.env.DB.prepare(
     `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason,
-            pr.replaces_prescription_id, pr.archived_at,
+            pr.replaces_prescription_id, pr.archived_at, pr.acknowledged_at,
             (SELECT id FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id) AS replaced_by,
+            (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at,
             proc.name AS procedure_name
      FROM prescriptions pr JOIN procedures proc ON proc.id = pr.procedure_id
      WHERE pr.id = ? AND pr.doctor_id = ?`
@@ -137,7 +139,7 @@ doctor.get('/prescriptions/:id', async (c) => {
   if (!p) return c.json({ error: 'Not found.' }, 404);
 
   const { results: videos } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.seek_attempts, vp.pause_count,
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, vp.started_at, vp.completed_at, vp.understood_at, vp.seek_attempts, vp.pause_count,
             (SELECT MAX(pb.allowed_ms) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS watched_ms,
             (SELECT MAX(pb.last_heartbeat_at) FROM playback_sessions pb WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id) AS last_watched_at,
             (SELECT COUNT(*) FROM attention_checks ac JOIN playback_sessions pb ON pb.id = ac.playback_id
@@ -154,8 +156,45 @@ doctor.get('/prescriptions/:id', async (c) => {
     const total = v.duration_seconds * 1000;
     v.watched_ms = v.completed_at ? total : Math.min(total, v.watched_ms ?? 0);
   }
+  // The patient's answers to each video's understanding questions.
+  const { results: answers } = await c.env.DB.prepare(
+    `SELECT a.video_id, a.question_id, a.chosen_index, a.correct, a.answered_at, q.position, q.prompt, q.choices, q.correct_index
+     FROM question_answers a JOIN video_questions q ON q.id = a.question_id
+     WHERE a.prescription_id = ? ORDER BY q.position, a.answered_at, a.rowid`
+  ).bind(p.id).all<any>();
+  for (const v of videos) {
+    const mine = answers.filter((a) => a.video_id === v.id);
+    const byQuestion = new Map<string, any>();
+    for (const a of mine) {
+      const choices = JSON.parse(a.choices) as string[];
+      const q = byQuestion.get(a.question_id) ?? { position: a.position, prompt: a.prompt, answer: choices[a.correct_index], attempts: 0, wrong_answers: [] as string[], correct: false };
+      q.attempts++;
+      if (a.correct) q.correct = true;
+      else q.wrong_answers.push(choices[a.chosen_index]);
+      byQuestion.set(a.question_id, q);
+    }
+    v.questions = [...byQuestion.values()];
+    v.questions_total = (await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM video_questions WHERE video_id = ? AND retired_at IS NULL`).bind(v.id).first<{ n: number }>())?.n ?? 0;
+  }
+  const { results: patientQuestions } = await c.env.DB.prepare(
+    `SELECT id, question, created_at, answered_at FROM patient_questions WHERE prescription_id = ? ORDER BY created_at`
+  ).bind(p.id).all();
   const lastActivity = videos.map((v) => v.last_watched_at).filter(Boolean).sort().pop() ?? null;
-  return c.json({ ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), confirmed_at: confirmed?.at ?? null, last_activity_at: lastActivity, videos });
+  return c.json({
+    ...p, hours_left: Math.max(0, hoursUntil(p.expires_at)), confirmed_at: confirmed?.at ?? null, last_activity_at: lastActivity, videos,
+    patient_questions: patientQuestions,
+  });
+});
+
+// The doctor has answered a patient's question (by phone, at the visit...).
+doctor.post('/prescriptions/:id/questions/:questionId/answered', async (c) => {
+  const owned = await c.env.DB.prepare(`SELECT id FROM prescriptions WHERE id = ? AND doctor_id = ?`)
+    .bind(c.req.param('id'), c.get('doctor').doctorId).first<{ id: string }>();
+  if (!owned) return c.json({ error: 'Not found.' }, 404);
+  const done = await c.env.DB.prepare(`UPDATE patient_questions SET answered_at = COALESCE(answered_at, ?) WHERE id = ? AND prescription_id = ?`)
+    .bind(nowIso(), c.req.param('questionId'), owned.id).run();
+  if (done.meta.changes !== 1) return c.json({ error: 'Not found.' }, 404);
+  return c.json({ ok: true });
 });
 
 // The full certificate (the public verify page shows only a summary).

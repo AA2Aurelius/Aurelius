@@ -22,6 +22,9 @@ interface Detail {
     duration_seconds: number;
     started_at: string | null;
     completed_at: string | null;
+    understood_at: string | null;
+    questions_total: number;
+    questions: Array<{ position: number; prompt: string; answer: string; attempts: number; wrong_answers: string[]; correct: boolean }>;
     seek_attempts: number;
     pause_count: number;
     watched_ms: number;
@@ -32,6 +35,9 @@ interface Detail {
   confirmed_at: string | null;
   last_activity_at: string | null;
   archived_at: string | null;
+  acknowledged_at: string | null;
+  certified_at: string | null;
+  patient_questions: Array<{ id: string; question: string; created_at: string; answered_at: string | null }>;
 }
 
 type Action = 'none' | 'resend' | 'cancel';
@@ -52,8 +58,16 @@ export function PatientDetail({ id }: { id: string }) {
   if (error) return <div className="card stack"><p className="error">{error}</p><Link to="/doctor/patients">← Patients</Link></div>;
   if (!d) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
 
-  const done = d.videos.filter((v) => v.completed_at).length;
-  const certified = d.videos.length > 0 && done === d.videos.length;
+  const done = d.videos.filter((v) => v.understood_at).length;
+  const certified = !!d.certified_at;
+  const markAnswered = async (qid: string) => {
+    try {
+      await doctorApi(`/prescriptions/${encodeURIComponent(d.id)}/questions/${encodeURIComponent(qid)}/answered`, { json: {} });
+      load();
+    } catch (err) {
+      setNotice(err instanceof ApiError ? err.message : 'Could not update the question.');
+    }
+  };
   const base = linkStatus({ ...d, certified, videos_done: done, videos_total: d.videos.length });
   // "Not started" only until the patient does something: opening the link
   // and confirming, then watching, show as progress.
@@ -106,6 +120,23 @@ export function PatientDetail({ id }: { id: string }) {
         </div>
       )}
 
+      {d.patient_questions.length > 0 && (
+        <section className="card stack patient-questions" aria-labelledby="pq-title">
+          <h2 id="pq-title">Questions from {d.patient_name.split(/\s+/)[0]}</h2>
+          {d.patient_questions.map((q) => (
+            <div key={q.id} className={`pq ${q.answered_at ? 'answered' : ''}`}>
+              <p className="pq-text">“{q.question}”</p>
+              <p className="pq-meta">
+                Sent {formatDateTime(q.created_at)}
+                {q.answered_at ? ` · ✓ Marked answered ${formatDateTime(q.answered_at)}` : ''}
+              </p>
+              {!q.answered_at && <button className="button small" onClick={() => markAnswered(q.id)}>Mark as answered</button>}
+            </div>
+          ))}
+          <p className="note">Answer by phone or at the next visit, then mark it answered.</p>
+        </section>
+      )}
+
       <section className="summary-tiles" aria-label="Summary">
         <div className="tile">
           <span className="tile-label">Videos watched</span>
@@ -117,6 +148,11 @@ export function PatientDetail({ id }: { id: string }) {
           <span className="tile-label">Identity confirmed</span>
           <strong className="tile-value">{d.confirmed_at ? '✓ Yes' : 'Not yet'}</strong>
           <span className="tile-sub">{d.confirmed_at ? formatDateTime(d.confirmed_at) : "They haven't opened the link and entered the emailed code yet."}</span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">Confirmed they understand</span>
+          <strong className="tile-value">{d.acknowledged_at ? '✓ Yes' : 'Not yet'}</strong>
+          <span className="tile-sub">{d.acknowledged_at ? formatDateTime(d.acknowledged_at) : 'The last step, after every video and its questions.'}</span>
         </div>
         <div className="tile">
           <span className="tile-label">Last activity</span>
@@ -141,13 +177,16 @@ export function PatientDetail({ id }: { id: string }) {
             const total = v.duration_seconds * 1000;
             const pct = total ? Math.round((100 * Math.min(v.watched_ms, total)) / total) : 0;
             return (
-              <li key={v.id} className={v.completed_at ? 'done' : v.watched_ms > 0 ? 'partial' : ''}>
-                <span className="view-num" aria-hidden="true">{v.completed_at ? '✓' : v.order_index}</span>
+              <li key={v.id} className={v.understood_at ? 'done' : v.watched_ms > 0 ? 'partial' : ''}>
+                <span className="view-num" aria-hidden="true">{v.understood_at ? '✓' : v.order_index}</span>
                 <div className="view-body">
                   <div className="view-head">
                     <strong>{v.order_index}. {v.title}</strong>
-                    <span className={`view-state ${v.completed_at ? 'done' : ''}`}>
-                      {v.completed_at ? `✓ Complete · ${formatDateTime(v.completed_at)}` : v.watched_ms > 0 ? `In progress · ${pct}%` : 'Not started'}
+                    <span className={`view-state ${v.understood_at ? 'done' : ''}`}>
+                      {v.understood_at
+                        ? `✓ Complete · ${formatDateTime(v.understood_at)}`
+                        : v.completed_at ? 'Watched · questions not answered yet'
+                        : v.watched_ms > 0 ? `In progress · ${pct}%` : 'Not started'}
                     </span>
                   </div>
                   <div className={`bar ${v.completed_at ? 'done' : ''}`} aria-hidden="true"><span style={{ width: `${pct}%` }} /></div>
@@ -158,6 +197,25 @@ export function PatientDetail({ id }: { id: string }) {
                     {' · '}Skips blocked: {v.seek_attempts}
                     {v.started_at && !v.completed_at ? ` · Started ${formatDateTime(v.started_at)}` : ''}
                   </p>
+                  {v.questions.length > 0 && (
+                    <details className="view-questions">
+                      <summary>
+                        Questions: {v.questions.filter((q) => q.correct).length} of {Math.max(v.questions_total, v.questions.length)} answered correctly
+                        {v.questions.some((q) => q.attempts > 1) ? ` · ${v.questions.filter((q) => q.attempts > 1).length} needed another try` : ''}
+                      </summary>
+                      <ol>
+                        {v.questions.map((q) => (
+                          <li key={q.position}>
+                            <strong>{q.prompt}</strong>
+                            <span>
+                              {q.correct ? `✓ ${q.answer}` : 'Not answered correctly yet'}
+                              {q.wrong_answers.length ? ` · first answered: ${q.wrong_answers.join('; ')}` : ' · right first time'}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  )}
                 </div>
               </li>
             );
