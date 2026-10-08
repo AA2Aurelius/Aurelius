@@ -18,7 +18,9 @@ export interface PatientRow {
   videos_total: number;
   certified_at: string | null;
   hours_left: number;
-  open_questions?: number;  // questions from the patient not yet marked answered
+  open_questions?: number;
+  doctor_name?: string;     // the prescribing doctor (a practice can have several)
+  sent_by_name?: string | null;  // questions from the patient not yet marked answered
 }
 
 // A procedure's thumbnail comes from its first video's preview playlist.

@@ -1,27 +1,31 @@
 import { FormEvent, useState } from 'react';
 import { ApiError, api } from '../api';
-import type { Doctor } from './DoctorApp';
+import { MfaSignIn } from './Account';
 
-export function Login({ notice, intent, onSignedIn }: { notice: string; intent?: string; onSignedIn: (d: Doctor) => void }) {
+export function Login({ notice, intent, onSignedIn }: { notice: string; intent?: string; onSignedIn: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [mfa, setMfa] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const r = await api<{ doctor: Doctor }>('/api/doctor/login', { json: { email, password } });
+      const r = await api<{ mfaRequired?: boolean }>('/api/doctor/login', { json: { email, password } });
       setPassword('');
-      onSignedIn(r.doctor);
+      if (r.mfaRequired) setMfa(true);
+      else onSignedIn();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not sign in.');
     } finally {
       setBusy(false);
     }
   };
+
+  if (mfa) return <MfaSignIn onDone={onSignedIn} onCancel={() => setMfa(false)} />;
 
   return (
     <form className="card stack narrow" onSubmit={submit}>

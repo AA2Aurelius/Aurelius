@@ -4,6 +4,18 @@
 //   npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]
 //   npm run create-doctor -- --reset --email jane@clinic.com [--remote]
 //   npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]
+//   npm run create-doctor -- --name "Pat Lee" --email pat@clinic.com --practice "Smith Orthopedics" --role staff [--remote]
+//   npm run create-doctor -- --reset-2fa --email jane@clinic.com [--remote]
+//
+// --practice puts the new account in that practice (created if there's no
+// practice by that name yet); everyone in a practice sees its invites.
+// --role staff makes a staff account, which sends invites on a doctor's
+// behalf; the default is doctor. Doctors can also add people themselves,
+// from Team in the doctor portal.
+//
+// --reset-2fa turns off two-step sign-in for an account whose phone and
+// recovery codes are both lost, and signs it out everywhere; they set it up
+// again at their next sign-in (if their practice requires it).
 //
 // Prompts for the password (not echoed), hashes it the same way the Worker
 // does (PBKDF2-SHA256, 100,000 iterations), and writes it with
@@ -54,10 +66,17 @@ const sqlString = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const name = arg('name');
 const email = arg('email')?.trim().toLowerCase();
 const reset = process.argv.includes('--reset');
+const reset2fa = process.argv.includes('--reset-2fa');
+const practiceName = arg('practice')?.trim();
+const role = arg('role') ?? 'doctor';
+if (role !== 'doctor' && role !== 'staff') {
+  console.error('--role must be doctor or staff.');
+  process.exit(1);
+}
 const newEmail = arg('new-email')?.trim().toLowerCase();
 const target = process.argv.includes('--remote') ? '--remote' : '--local';
 const isEmail = (e) => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-if ((!reset && !newEmail && !name) || !isEmail(email) || (newEmail !== undefined && !isEmail(newEmail))) {
+if ((!reset && !reset2fa && !newEmail && !name) || !isEmail(email) || (newEmail !== undefined && !isEmail(newEmail))) {
   console.error('Usage: npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]');
   console.error('   or: npm run create-doctor -- --reset --email jane@clinic.com [--remote]');
   console.error('   or: npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]');
@@ -88,6 +107,22 @@ function findDoctor(address) {
 }
 
 const where = target === '--remote' ? '' : ' in the local database (add --remote for the live one)';
+
+if (reset2fa) {
+  const doc = findDoctor(email);
+  if (!doc) {
+    console.error(`No account with the email ${email}${where}.`);
+    process.exit(1);
+  }
+  rl.close();
+  const now = new Date().toISOString();
+  run(
+    `UPDATE doctors SET totp_secret_enc = NULL, totp_pending_enc = NULL, totp_enabled_at = NULL, totp_last_step = NULL, recovery_codes = NULL WHERE email = ${sqlString(email)};\n` +
+    `UPDATE doctor_sessions SET revoked_at = ${sqlString(now)} WHERE revoked_at IS NULL AND doctor_id = (SELECT id FROM doctors WHERE email = ${sqlString(email)});\n`
+  );
+  console.log(`Two-step sign-in is off for ${doc.name} <${email}>, and they were signed out everywhere.`);
+  process.exit(0);
+}
 
 if (reset || newEmail) {
   // Fail before asking for anything if there's no such account.
@@ -141,8 +176,13 @@ const sql = reset
     `UPDATE doctor_sessions SET revoked_at = ${sqlString(now)} WHERE revoked_at IS NULL ` +
     `AND doctor_id = (SELECT id FROM doctors WHERE email = ${sqlString(email)});\n` +
     `DELETE FROM rate_limits WHERE key = ${sqlString(`login:email:${email}`)};\n`
-  : `INSERT INTO doctors (id, name, email, password_hash, created_at) VALUES (` +
-    `${sqlString(randomUUID())}, ${sqlString(name)}, ${sqlString(email)}, ${sqlString(passwordHash)}, ${sqlString(now)});\n`;
+  : (practiceName
+      ? `INSERT INTO practices (id, name, created_at) SELECT ${sqlString(randomUUID())}, ${sqlString(practiceName)}, ${sqlString(now)} ` +
+        `WHERE NOT EXISTS (SELECT 1 FROM practices WHERE name = ${sqlString(practiceName)} COLLATE NOCASE);\n`
+      : '') +
+    `INSERT INTO doctors (id, name, email, password_hash, created_at, role, practice_id) VALUES (` +
+    `${sqlString(randomUUID())}, ${sqlString(name)}, ${sqlString(email)}, ${sqlString(passwordHash)}, ${sqlString(now)}, ${sqlString(role)}, ` +
+    (practiceName ? `(SELECT id FROM practices WHERE name = ${sqlString(practiceName)} COLLATE NOCASE ORDER BY created_at LIMIT 1)` : 'NULL') + `);\n`;
 
 run(sql);
-console.log(reset ? `Password reset for ${email}. Any signed-in sessions were ended.` : `Created doctor ${email}.`);
+console.log(reset ? `Password reset for ${email}. Any signed-in sessions were ended.` : `Created ${role === 'staff' ? 'staff account' : 'doctor'} ${email}${practiceName ? ` in ${practiceName}` : ''}.`);

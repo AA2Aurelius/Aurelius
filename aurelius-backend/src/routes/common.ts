@@ -43,8 +43,24 @@ export const requireDoctor: MiddlewareHandler<AppEnv> = async (c, next) => {
   const session = await getDoctorSession(c);
   if (!session) return c.json({ error: 'Not signed in.' }, 401);
   c.set('doctor', session);
+  // A practice that requires two-step sign-in: until it's set up, only the
+  // setup itself (and signing out) is allowed.
+  if (session.practiceRequiresMfa && !session.mfaEnabled && !/\/api\/doctor\/(me|mfa(\/.*)?|logout)$/.test(c.req.path)) {
+    return c.json({ error: 'Your practice requires two-step sign-in. Please set it up first.', code: 'MFA_SETUP_REQUIRED' }, 403);
+  }
   await next();
 };
+
+// Which invites an account can see and act on: those of every doctor in its
+// practice, or (working alone) only its own. Use as
+// `WHERE ${scope.sql}` with `...scope.binds`, on a query aliasing
+// prescriptions as `alias`.
+export function practiceScope(d: DoctorSession, alias = 'pr'): { sql: string; binds: unknown[] } {
+  return {
+    sql: `${alias}.doctor_id IN (SELECT id FROM doctors WHERE id = ? OR (practice_id IS NOT NULL AND practice_id = ?))`,
+    binds: [d.doctorId, d.practiceId],
+  };
+}
 
 // ----------------------------------------------------------------- patient
 

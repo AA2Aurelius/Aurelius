@@ -1010,3 +1010,18 @@ details[open] summary { margin-bottom: 12px; }
 .cc-toggle .cc-badge { margin-left: 0; }
 .cc-toggle.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
 .player-video::cue { font-size: 1.15em; line-height: 1.35; background: rgba(0, 0, 0, 0.72); color: #fff; }
+
+/* Team, security and two-step sign-in */
+.narrow-wide { max-width: 640px; }
+.mfa-steps { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+.mfa-steps li { line-height: 1.5; }
+.mfa-qr { width: 200px; height: 200px; margin: 10px 0; background: #fff; border-radius: 12px; padding: 6px; border: 1px solid var(--border); }
+.mfa-qr svg { width: 100%; height: 100%; display: block; }
+.mfa-key { font-size: 0.95rem; letter-spacing: 0.06em; word-break: break-all; }
+.recovery-codes { margin: 0; padding-left: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; font-size: 1.05rem; }
+.recovery-codes code { letter-spacing: 0.08em; }
+.role-pick { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.role-pick legend { font-weight: 700; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+.role-pick label, .check-row { display: flex; gap: 10px; align-items: center; color: var(--text); font-weight: 400; font-size: 1rem; }
+.role-pick input, .check-row input { width: auto; flex: none; margin: 0; min-height: 0; }
+.team-table tr.faint td { opacity: 0.5; }
