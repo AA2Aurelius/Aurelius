@@ -227,6 +227,7 @@ export function Security({ forced, onEnabled }: { forced?: boolean; onEnabled?: 
 }
 
 interface TeamData {
+  certificateEmail: string;
   practice: { id: string; name: string; requireMfa: boolean } | null;
   members: Array<{ id: string; name: string; email: string; role: string; mfa: boolean; disabled: boolean; me: boolean }>;
   invites: Array<{ id: string; name: string; email: string; role: string; created_at: string; expires_at: string }>;
@@ -239,7 +240,8 @@ export function Team({ role }: { role: 'doctor' | 'staff' }) {
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({ name: '', email: '', role: 'staff', practice_name: '' });
   const [busy, setBusy] = useState(false);
-  const load = () => doctorApi<TeamData>('/team').then(setData).catch((err) => setError(message(err, 'Could not load the team.')));
+  const [officeEmail, setOfficeEmail] = useState('');
+  const load = () => doctorApi<TeamData>('/team').then((t) => { setData(t); setOfficeEmail(t.certificateEmail); }).catch((err) => setError(message(err, 'Could not load the team.')));
   useEffect(() => { load(); }, []);
   const canManage = role === 'doctor';
 
@@ -328,6 +330,24 @@ export function Team({ role }: { role: 'doctor' | 'staff' }) {
               <label><input type="radio" name="role" checked={form.role === 'doctor'} onChange={() => setForm({ ...form, role: 'doctor' })} /> Doctor: patients' invites can come from them</label>
             </fieldset>
             <button className="button" type="submit" disabled={busy}>{busy ? 'Sending…' : 'Send invitation'}</button>
+          </form>
+        </section>
+      )}
+
+      {canManage && (
+        <section className="card stack narrow-wide">
+          <h2 style={{ margin: 0 }}>Certificates to the office</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            When a patient's certificate is issued, we email this address so the office can download the PDF for the chart.
+            The email names only the patient's initials; the PDF is downloaded after signing in.
+          </p>
+          <form className="stack" onSubmit={(e) => {
+            e.preventDefault();
+            act(() => doctorApi('/team/certificate-email', { json: { email: officeEmail } }), officeEmail.trim() ? `Certificate notices will go to ${officeEmail.trim()}.` : 'Certificate notices are off.');
+          }}>
+            <label htmlFor="t-office">Office email</label>
+            <input id="t-office" type="email" value={officeEmail} onChange={(e) => setOfficeEmail(e.target.value)} placeholder="e.g. records@smithortho.com (leave empty for none)" />
+            <button className="button" type="submit" disabled={busy || officeEmail.trim().toLowerCase() === data.certificateEmail}>Save</button>
           </form>
         </section>
       )}

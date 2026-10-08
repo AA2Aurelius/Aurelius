@@ -89,7 +89,7 @@ export function WatchApp({ token }: { token: string }) {
     case 'acknowledge':
       return <Acknowledge token={token} statement={data.acknowledgment} onDone={advance} onBack={backToPortal} />;
     case 'certificate':
-      return <CertificateView load={() => api<CertificateResponse>(`${base}/certificate`)} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
+      return <CertificateView load={() => api<CertificateResponse>(`${base}/certificate`)} pdfUrl={`${base}/certificate.pdf`} backLabel="← Your videos" onBack={() => setView({ kind: 'portal' })} />;
     default: {
       // The video being watched plays in the main area; the set stays listed
       // alongside it.

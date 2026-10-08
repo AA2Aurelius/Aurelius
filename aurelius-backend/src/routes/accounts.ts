@@ -194,8 +194,12 @@ export function registerAccountRoutes(app: Hono<AppEnv>) {
 
   app.get('/team', async (c) => {
     const d = c.get('doctor');
+    const officeEmail = await c.env.DB.prepare(
+      `SELECT CASE WHEN d.practice_id IS NULL THEN d.certificate_email ELSE pc.certificate_email END AS email FROM doctors d LEFT JOIN practices pc ON pc.id = d.practice_id WHERE d.id = ?`
+    ).bind(d.doctorId).first<{ email: string | null }>();
+    const certificateEmail = officeEmail?.email ?? '';
     if (!d.practiceId) {
-      return c.json({ practice: null, members: [{ id: d.doctorId, name: d.name, email: d.email, role: d.role, mfa: d.mfaEnabled, disabled: false, me: true }], invites: [] });
+      return c.json({ certificateEmail, practice: null, members: [{ id: d.doctorId, name: d.name, email: d.email, role: d.role, mfa: d.mfaEnabled, disabled: false, me: true }], invites: [] });
     }
     const practice = await c.env.DB.prepare(`SELECT id, name, require_mfa FROM practices WHERE id = ?`).bind(d.practiceId).first<{ id: string; name: string; require_mfa: number }>();
     const { results: members } = await c.env.DB.prepare(
@@ -205,6 +209,7 @@ export function registerAccountRoutes(app: Hono<AppEnv>) {
       `SELECT id, name, email, role, created_at, expires_at FROM account_invites WHERE practice_id = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ? ORDER BY created_at DESC`
     ).bind(d.practiceId, nowIso()).all<any>();
     return c.json({
+      certificateEmail,
       practice: practice ? { id: practice.id, name: practice.name, requireMfa: !!practice.require_mfa } : null,
       members: members.map((m) => ({ ...m, mfa: !!m.mfa, disabled: !!m.disabled, me: m.id === d.doctorId })),
       // The invite id is a token hash; a short form is enough to cancel it.
@@ -292,6 +297,21 @@ export function registerAccountRoutes(app: Hono<AppEnv>) {
     await c.env.DB.prepare(`UPDATE practices SET name = COALESCE(NULLIF(?, ''), name), require_mfa = COALESCE(?, require_mfa) WHERE id = ?`)
       .bind(name, typeof body.require_mfa === 'boolean' ? (body.require_mfa ? 1 : 0) : null, d.practiceId).run();
     return c.json({ ok: true });
+  });
+}
+
+// Where "a certificate is ready" notices go: the practice's office, or a
+// doctor working alone. Empty turns them off.
+export function registerOfficeEmailRoute(app: Hono<AppEnv>) {
+  app.post('/team/certificate-email', async (c) => {
+    const d = c.get('doctor');
+    if (d.role !== 'doctor') return c.json({ error: 'Only doctors can change where certificate notices go.' }, 403);
+    const body = await readJson(c);
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (email && !isEmail(email)) return c.json({ error: 'Enter a valid email address, or leave it empty.' }, 400);
+    if (d.practiceId) await c.env.DB.prepare(`UPDATE practices SET certificate_email = ? WHERE id = ?`).bind(email || null, d.practiceId).run();
+    else await c.env.DB.prepare(`UPDATE doctors SET certificate_email = ? WHERE id = ?`).bind(email || null, d.doctorId).run();
+    return c.json({ ok: true, certificateEmail: email });
   });
 }
 

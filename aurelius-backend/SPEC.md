@@ -140,6 +140,17 @@ Public:
   They're stored with the video's row and served behind the same access
   check as the video. Patients switch them on with a Captions button; the
   choice is remembered on that device.
+- **Certificate PDF:** patients and doctors download the certificate as a
+  PDF (`.../certificate.pdf`) made by the Worker (`src/pdf.ts`; the only
+  dependency is the QR encoder). It carries a QR code to its verify page
+  and the exact signed record as an attachment (`certificate-signed.json`,
+  POST it to `/api/verify`). The file name has the verification code, not
+  the patient's name.
+- **Certificates to the office:** a doctor sets an office address under
+  Team (`practices.certificate_email`, or `doctors.certificate_email` when
+  working alone). When a certificate is issued, that address gets a notice
+  naming only the patient's initials and linking to the portal, where the
+  PDF is downloaded after signing in. The PDF itself is not emailed.
 - **Practices and staff:** a doctor adds colleagues and staff under Team;
   they get a 7-day join link and choose their own password. Everyone in a
   practice sees its invites and progress. Staff (`doctors.role = 'staff'`)

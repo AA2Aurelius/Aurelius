@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { logEvent, prepareEvent, withChainRetry } from '../audit';
 import { formatVerificationCode, getCertificateRow, issueCertificateIfComplete } from '../certificate';
+import { certificatePdfResponse } from '../certificatePdf';
 import { sendEmail } from '../email';
 import { clientIp, hmacHex, hoursUntil, maskEmail, nowIso, randomBytes, secondsFromNow, secondsSince, timingSafeEqual, uuid } from '../lib';
 import { overLimit } from '../ratelimit';
@@ -241,4 +242,11 @@ patient.get('/:token/certificate', requirePatient, async (c) => {
     signature: row.signature,
     verificationCode: formatVerificationCode(row.verification_code),
   });
+});
+
+patient.get('/:token/certificate.pdf', requirePatient, async (c) => {
+  const p = c.get('prescription');
+  const row = (await getCertificateRow(c.env, p.id)) ?? (await issueCertificateIfComplete(c.env, p.id));
+  if (!row) return c.json({ error: 'Not finished yet: every video, its questions and the final confirmation come first.' }, 409);
+  return certificatePdfResponse(row, c.env.APP_ORIGIN);
 });
