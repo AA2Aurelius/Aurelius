@@ -124,6 +124,7 @@ export function DoctorApp() {
       <CertificateView
         key={id}
         load={() => doctorApi<CertificateResponse>(`/prescriptions/${encodeURIComponent(id)}/certificate`)}
+        pdfUrl={`/api/doctor/prescriptions/${encodeURIComponent(id)}/certificate.pdf`}
         backLabel="← Patient"
         onBack={() => navigate(`/doctor/patients/${encodeURIComponent(id)}`)}
       />

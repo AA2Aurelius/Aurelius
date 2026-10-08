@@ -1,7 +1,8 @@
 import { CHAIN_ALGORITHM, logEvent, verifyChain } from './audit';
 import { evidenceHashes } from './evidence';
 import { ACKNOWLEDGMENT, understandingByVideo } from './understanding';
-import { Env, base64url, canonicalJson, fromBase64url, maskEmail, nowIso, randomBytes, sha256Hex, uuid } from './lib';
+import { sendEmail } from './email';
+import { Env, base64url, canonicalJson, fromBase64url, initials, maskEmail, nowIso, randomBytes, sha256Hex, uuid } from './lib';
 
 // Certificates are issued once per prescription, signed with Ed25519, and
 // never changed. Anyone holding the public key (GET /verify/public-key) can
@@ -294,8 +295,31 @@ export async function issueCertificateIfComplete(env: Env, prescriptionId: strin
   ).bind(id, prescriptionId, code, payloadJson, signature, keyId, issuedAt).run();
   if (inserted.meta.changes === 1) {
     await logEvent(env, { prescriptionId, type: 'certificate_issued', meta: { certificate_id: id, covers_events: chain.count, head_hash: chain.headHash } });
+    await notifyOffice(env, prescriptionId, p);
   }
   return getCertificateRow(env, prescriptionId);
+}
+
+// Tells the office a certificate is ready, if the practice (or a doctor
+// working alone) has set an address. Like the other doctor emails it names
+// only the patient's initials; the PDF is downloaded after signing in.
+// Never fails issuance.
+async function notifyOffice(env: Env, prescriptionId: string, p: { doctor_id: string; doctor_name: string; patient_name: string; procedure_name: string }) {
+  try {
+    const to = await env.DB.prepare(
+      `SELECT COALESCE(pc.certificate_email, d.certificate_email) AS email FROM doctors d LEFT JOIN practices pc ON pc.id = d.practice_id WHERE d.id = ?`
+    ).bind(p.doctor_id).first<{ email: string | null }>();
+    if (!to?.email) return;
+    await sendEmail(env, {
+      to: to.email,
+      subject: `Certificate ready (${initials(p.patient_name)})`,
+      text:
+        `${p.doctor_name}'s patient ${initials(p.patient_name)} has completed their ${p.procedure_name} videos, and their certificate of completion is ready.\n\n` +
+        `Sign in to download the PDF for the chart: ${env.APP_ORIGIN}/doctor/patients/${encodeURIComponent(prescriptionId)}`,
+    });
+  } catch (err) {
+    console.error('certificate office email failed', err);
+  }
 }
 
 export interface CertificateCheck {

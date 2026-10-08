@@ -28,11 +28,12 @@ export interface CertificateResponse {
   };
 }
 
-// The certificate of completion, laid out for printing (or saving as PDF
-// from the browser's print dialog). Patients and doctors load it from
+// The certificate of completion, laid out for printing; the PDF download is
+// made by the server and carries the signed record. Patients and doctors load it from
 // different endpoints; `load` fetches it.
-export function CertificateView({ load, backLabel, onBack }: {
+export function CertificateView({ load, pdfUrl, backLabel, onBack }: {
   load: () => Promise<CertificateResponse>;
+  pdfUrl: string;            // the certificate as a PDF file, for the chart
   backLabel: string;
   onBack: () => void;
 }) {
@@ -54,7 +55,10 @@ export function CertificateView({ load, backLabel, onBack }: {
     <div className="stack">
       <div className="no-print row">
         <button className="link-button" onClick={onBack}>{backLabel}</button>
-        <button className="button" onClick={() => window.print()}>Print or save as PDF</button>
+        <span className="cert-actions">
+          <a className="button" href={pdfUrl} download>Download PDF</a>
+          <button className="button secondary" onClick={() => window.print()}>Print</button>
+        </span>
       </div>
 
       {data.integrity && !data.integrity.valid && (

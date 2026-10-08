@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { GENESIS_HASH, logEvent, prepareEvent, withChainRetry } from '../audit';
 import { checkCertificate, formatVerificationCode, getCertificateRow, issueCertificateIfComplete } from '../certificate';
+import { certificatePdfResponse } from '../certificatePdf';
 import { sendEmail } from '../email';
 import { Env, clientIp, hoursFromNow, hoursUntil, isEmail, maskEmail, nowIso, randomToken, sha256Hex, uuid } from '../lib';
 import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
 import { hitRateLimit, overLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
 import { AppEnv, Prescription, practiceScope, readJson, requireDoctor } from './common';
-import { registerAccountRoutes, registerSignInRoutes, startMfaChallenge } from './accounts';
+import { registerAccountRoutes, registerOfficeEmailRoute, registerSignInRoutes, startMfaChallenge } from './accounts';
 import type { DoctorSession } from '../sessions';
 import { registerEvergreenRoutes, registerPreviewRoutes } from './evergreen';
 
@@ -63,6 +64,7 @@ doctor.use('*', requireDoctor);
 
 // The practice's team, and two-step sign-in setup.
 registerAccountRoutes(doctor);
+registerOfficeEmailRoute(doctor);
 
 doctor.post('/logout', async (c) => {
   await revokeDoctorSession(c);
@@ -240,6 +242,15 @@ doctor.get('/prescriptions/:id/certificate', async (c) => {
     verificationCode: formatVerificationCode(row.verification_code),
     integrity: { valid: check.valid, problems: check.problems },
   });
+});
+
+// The certificate as a PDF, for the patient's chart.
+doctor.get('/prescriptions/:id/certificate.pdf', async (c) => {
+  const owned = await getOwnedPrescription(c.env, c.req.param('id'), c.get('doctor'));
+  if (!owned) return c.json({ error: 'Not found.' }, 404);
+  const row = await issueCertificateIfComplete(c.env, owned.id);
+  if (!row) return c.json({ error: 'Not all videos are complete yet.' }, 409);
+  return certificatePdfResponse(row, c.env.APP_ORIGIN);
 });
 
 // ------------------------------------------------------------- prescribe

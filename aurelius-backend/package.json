@@ -20,7 +20,8 @@
     "captions": "node scripts/captions.mjs"
   },
   "dependencies": {
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "qrcode-generator": "1.4.4"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

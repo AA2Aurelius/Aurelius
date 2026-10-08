@@ -656,6 +656,7 @@ details[open] summary { margin-bottom: 12px; }
   text-align: center;
   overflow: hidden;
 }
+.cert-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .cert-band {
   margin: 0 -44px 28px;
   padding: 18px 16px;

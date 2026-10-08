@@ -116,7 +116,10 @@ export function PatientDetail({ id }: { id: string }) {
       {certified && (
         <div className="banner success with-action">
           <p><strong>All videos complete.</strong> The certificate is ready.</p>
-          <Link to={`/doctor/patients/${encodeURIComponent(d.id)}/certificate`} className="button">View certificate</Link>
+          <div className="row">
+            <Link to={`/doctor/patients/${encodeURIComponent(d.id)}/certificate`} className="button">View certificate</Link>
+            <a className="button secondary" href={`/api/doctor/prescriptions/${encodeURIComponent(d.id)}/certificate.pdf`} download>Download PDF</a>
+          </div>
         </div>
       )}
 
