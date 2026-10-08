@@ -1006,3 +1006,7 @@ details[open] summary { margin-bottom: 12px; }
 .h-question { display: inline-block; margin-left: 8px; font-size: 0.78rem; font-weight: 700; color: var(--warning); background: var(--warning-soft); border-radius: 999px; padding: 2px 8px; }
 .q-choice, .ack-statement, .ack-ask { color: var(--text); font-weight: 400; font-size: 1.05rem; }
 .ack-ask { font-weight: 700; }
+.cc-badge { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1.5px solid currentColor; border-radius: 4px; font-size: 0.68rem; font-weight: 800; line-height: 1.35; letter-spacing: 0.04em; vertical-align: 1px; }
+.cc-toggle .cc-badge { margin-left: 0; }
+.cc-toggle.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.player-video::cue { font-size: 1.15em; line-height: 1.35; background: rgba(0, 0, 0, 0.72); color: #fff; }

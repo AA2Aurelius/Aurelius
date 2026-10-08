@@ -21,6 +21,7 @@ export interface PrescribedVideo {
   order_index: number;
   duration_seconds: number;
   poster?: string | null;
+  captions?: string | null;  // WebVTT captions, when the video has them
   question_count?: number;  // questions to answer after this video
   complete?: boolean;       // already watched and understood (a rewatch)
 }
@@ -69,6 +70,15 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
   }, [phase]);
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
+  // Captions: off by default, remembered on this device.
+  const [ccOn, setCcOn] = useState(() => {
+    try { return localStorage.getItem('aurelius-captions') === 'on'; } catch { return false; }
+  });
+  useEffect(() => {
+    const track = videoRef.current?.textTracks?.[0];
+    if (track) track.mode = ccOn ? 'showing' : 'hidden';
+    try { localStorage.setItem('aurelius-captions', ccOn ? 'on' : 'off'); } catch {}
+  }, [ccOn, video.captions]);
   const [buffering, setBuffering] = useState(false);
   const [position, setPosition] = useState(0);
   const [check, setCheck] = useState<CheckInfo | null>(null);
@@ -346,7 +356,18 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
           className="player-video"
           poster={video.poster ? `${base}/${video.poster}` : undefined}
           onClick={() => (playing ? pause() : play())}
-        />
+        >
+          {video.captions && (
+            <track
+              kind="captions"
+              src={`${base}/${video.captions}`}
+              srcLang="en"
+              label="English"
+              default={ccOn}
+              onLoad={(e) => { e.currentTarget.track.mode = ccOn ? 'showing' : 'hidden'; }}
+            />
+          )}
+        </video>
 
         {phase === 'starting' && <div className="overlay"><div className="spinner" aria-label="Loading" /></div>}
         {phase === 'ready' && !playing && !check && !awayPaused && (
@@ -435,6 +456,11 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
           {playing ? 'Pause' : 'Play'}
         </button>
         <button className="button secondary" onClick={back10} disabled={phase !== 'ready'}>Back 10 s</button>
+        {video.captions && (
+          <button className={`button secondary cc-toggle ${ccOn ? 'on' : ''}`} onClick={() => setCcOn(!ccOn)} aria-pressed={ccOn}>
+            <span className="cc-badge" aria-hidden="true">CC</span> {ccOn ? 'Captions on' : 'Captions off'}
+          </button>
+        )}
         {canFullscreen && <button className="button secondary" onClick={fullscreen}>Full screen</button>}
       </div>
 
@@ -447,7 +473,8 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
       {connectionTrouble && <p className="note">Having trouble reaching Aurelius. Retrying…</p>}
       {phase === 'error' && <p className="error">{error}</p>}
       <p className="cert-required" role="note">
-        <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video.
+        <strong>You must receive your certificate before your surgery.</strong> It's issued once you've watched every video
+        and answered its short questions.
       </p>
       <p className="hint">
         Watch the whole video to continue. It pauses if you switch away, and you'll be asked now and then to confirm you're still watching.

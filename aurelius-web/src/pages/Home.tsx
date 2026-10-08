@@ -147,7 +147,7 @@ export function Home() {
             <h2 className="home-h2">How it works</h2>
             {howVideo && (
               <div className="how-video">
-                <VideoFrame src={`/api/public/${howVideo.playlist}`} poster={howVideo.poster && `/api/public/${howVideo.poster}`} />
+                <VideoFrame src={`/api/public/${howVideo.playlist}`} poster={howVideo.poster && `/api/public/${howVideo.poster}`} captions={howVideo.captions && `/api/public/${howVideo.captions}`} />
               </div>
             )}
             <ol className="how-list">

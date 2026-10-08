@@ -7,7 +7,7 @@ import { overLimit } from '../ratelimit';
 import { createPatientSession, getPatientSession } from '../sessions';
 import { turnstilePasses } from '../turnstile';
 import { AppEnv, getPrescribedVideo, loadPrescription, readJson, requireActiveLink, requirePatient } from './common';
-import { registerEvergreenRoutes } from './evergreen';
+import { registerEvergreenRoutes, vttResponse } from './evergreen';
 import { registerPlaybackRoutes } from './playback';
 import { ACKNOWLEDGMENT, registerUnderstandingRoutes } from '../understanding';
 import { serveR2Object } from '../stream';
@@ -43,7 +43,7 @@ patient.get('/:token', async (c) => {
   const proc = await c.env.DB.prepare(`SELECT name FROM procedures WHERE id = ?`).bind(p.procedure_id).first<{ name: string }>();
   const doctor = await c.env.DB.prepare(`SELECT name FROM doctors WHERE id = ?`).bind(p.doctor_id).first<{ name: string }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, vp.started_at, vp.completed_at, vp.understood_at,
+    `SELECT v.id, v.title, v.order_index, v.duration_seconds, v.poster_r2_key, v.captions_vtt IS NOT NULL AS has_captions, vp.started_at, vp.completed_at, vp.understood_at,
             (SELECT COUNT(*) FROM video_questions q WHERE q.video_id = v.id AND q.retired_at IS NULL) AS question_count,
             (SELECT pb.allowed_ms FROM playback_sessions pb
                WHERE pb.prescription_id = vp.prescription_id AND pb.video_id = v.id AND pb.completed_at IS NULL
@@ -58,7 +58,7 @@ patient.get('/:token', async (c) => {
   const videos = results.map((v) => {
     const unlocked = allBeforeDone;
     allBeforeDone = allBeforeDone && !!v.understood_at;
-    const { poster_r2_key, resume_ms, understood_at, ...rest } = v;
+    const { poster_r2_key, resume_ms, understood_at, has_captions, ...rest } = v;
     // Where an unfinished video will pick up (the player resumes there).
     const resumeSeconds = !v.completed_at && resume_ms > 0 ? Math.min(v.duration_seconds, Math.floor(resume_ms / 1000)) : 0;
     return {
@@ -69,6 +69,7 @@ patient.get('/:token', async (c) => {
       questions_pending: !!v.completed_at && !understood_at,
       resume_seconds: resumeSeconds,
       poster: poster_r2_key ? `video/${v.id}/poster.jpg` : null,
+      captions: has_captions ? `video/${v.id}/captions.vtt` : null,
     };
   });
   const acknowledged = await c.env.DB.prepare(`SELECT acknowledged_at FROM prescriptions WHERE id = ?`).bind(p.id).first<{ acknowledged_at: string | null }>();
@@ -209,6 +210,14 @@ patient.get('/:token/video/:videoId/poster.jpg', requirePatient, async (c) => {
   const row = await c.env.DB.prepare(`SELECT poster_r2_key FROM videos WHERE id = ?`).bind(video.video_id).first<{ poster_r2_key: string | null }>();
   const res = row?.poster_r2_key && (await serveR2Object(c.env.VIDEOS, row.poster_r2_key, c.req.raw));
   return res || c.json({ error: 'Not found.' }, 404);
+});
+
+// Captions for one of the patient's own videos.
+patient.get('/:token/video/:videoId/captions.vtt', requirePatient, async (c) => {
+  const video = await getPrescribedVideo(c.env, c.get('prescription').id, c.req.param('videoId'));
+  if (!video) return c.json({ error: 'Not found.' }, 404);
+  const row = await c.env.DB.prepare(`SELECT captions_vtt FROM videos WHERE id = ?`).bind(video.video_id).first<{ captions_vtt: string | null }>();
+  return row?.captions_vtt ? vttResponse(row.captions_vtt) : c.json({ error: 'Not found.' }, 404);
 });
 
 // Playback start, playlist, chunks, heartbeats, attention checks and

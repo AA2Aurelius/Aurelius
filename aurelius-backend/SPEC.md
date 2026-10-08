@@ -134,6 +134,12 @@ Public:
   answered correctly (`video_progress.understood_at`). A video without
   questions is understood as soon as it is watched. Every answer is stored
   and logged (`question_answered`). Correct answers never leave the server.
+- **Captions:** every player (patient, evergreen, doctor preview) shows
+  WebVTT captions when a video has them, loaded with `npm run captions`
+  (accepts .vtt or .srt; `--list` shows which videos still need them).
+  They're stored with the video's row and served behind the same access
+  check as the video. Patients switch them on with a Captions button; the
+  choice is remembered on that device.
 - **Closing acknowledgment:** after the last video the patient ticks a
   statement that they understand (versioned in `src/understanding.ts`) and
   may send the doctor a question. The doctor is emailed that a question is

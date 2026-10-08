@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { attachHls } from '../video';
 
-export interface EvergreenVideo { id: string; title: string; order: number; durationSeconds: number; playlist: string; poster?: string | null }
+export interface EvergreenVideo { id: string; title: string; order: number; durationSeconds: number; playlist: string; poster?: string | null; captions?: string | null }
 
 // An ordinary video with the browser's own controls, for videos that aren't
 // part of the consent record (the evergreen explainers, doctors' previews).
 // `src` is the playlist URL.
-export function VideoFrame({ src, poster, autoPlay }: { src: string; poster?: string | null; autoPlay?: boolean }) {
+export function VideoFrame({ src, poster, captions, autoPlay }: { src: string; poster?: string | null; captions?: string | null; autoPlay?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -20,19 +20,21 @@ export function VideoFrame({ src, poster, autoPlay }: { src: string; poster?: st
   return (
     <>
       <div className="player-shell">
-        <video ref={ref} controls playsInline preload="metadata" className="player-video" poster={poster ?? undefined} />
+        <video ref={ref} controls playsInline preload="metadata" className="player-video" poster={poster ?? undefined}>
+          {captions && <track kind="captions" src={captions} srcLang="en" label="English" />}
+        </video>
       </div>
       {error && <p className="error">{error}</p>}
     </>
   );
 }
 
-export function PlainPlayer({ title, src, poster, backLabel, onBack }: { title: string; src: string; poster?: string | null; backLabel: string; onBack: () => void }) {
+export function PlainPlayer({ title, src, poster, captions, backLabel, onBack }: { title: string; src: string; poster?: string | null; captions?: string | null; backLabel: string; onBack: () => void }) {
   return (
     <div className="player-page">
       <button className="link-button" onClick={onBack}>{backLabel}</button>
       <h1 className="player-title">{title}</h1>
-      <VideoFrame src={src} poster={poster} />
+      <VideoFrame src={src} poster={poster} captions={captions} />
     </div>
   );
 }

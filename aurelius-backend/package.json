@@ -16,7 +16,8 @@
     "build:web": "npm --prefix ../aurelius-web ci && npm --prefix ../aurelius-web run build",
     "test-prescribe": "node scripts/test-prescribe.mjs",
     "archive-invites": "node scripts/archive-invites.mjs",
-    "questions": "node scripts/questions.mjs"
+    "questions": "node scripts/questions.mjs",
+    "captions": "node scripts/captions.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0"
