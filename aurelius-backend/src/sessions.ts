@@ -23,9 +23,13 @@ function setSessionCookie(c: Context, name: string, token: string, maxAgeSeconds
 
 export interface DoctorSession {
   sessionId: string;
-  doctorId: string;
+  doctorId: string;          // the signed-in account (a doctor or a staff member)
   name: string;
   email: string;
+  role: 'doctor' | 'staff';
+  practiceId: string | null; // null: a doctor working alone
+  mfaEnabled: boolean;
+  practiceRequiresMfa: boolean;
 }
 
 export async function createDoctorSession<E extends { Bindings: Env }>(c: Context<E>, doctorId: string): Promise<void> {
@@ -45,17 +49,21 @@ export async function getDoctorSession<E extends { Bindings: Env }>(c: Context<E
   const now = nowIso();
   const idleCutoff = new Date(Date.now() - DOCTOR_IDLE_SECONDS * 1000).toISOString();
   const row = await c.env.DB.prepare(
-    `SELECT s.id, s.last_seen_at, d.id AS doctor_id, d.name, d.email
-     FROM doctor_sessions s JOIN doctors d ON d.id = s.doctor_id
+    `SELECT s.id, s.last_seen_at, d.id AS doctor_id, d.name, d.email, d.role, d.practice_id, d.totp_enabled_at, COALESCE(p.require_mfa, 0) AS require_mfa
+     FROM doctor_sessions s JOIN doctors d ON d.id = s.doctor_id LEFT JOIN practices p ON p.id = d.practice_id
      WHERE s.id = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND s.last_seen_at > ? AND d.disabled_at IS NULL`
-  ).bind(id, now, idleCutoff).first<{ id: string; last_seen_at: string; doctor_id: string; name: string; email: string }>();
+  ).bind(id, now, idleCutoff).first<{ id: string; last_seen_at: string; doctor_id: string; name: string; email: string; role: string; practice_id: string | null; totp_enabled_at: string | null; require_mfa: number }>();
   if (!row) return null;
 
   // Slide the idle window, but don't write on every single request.
   if (Date.now() - new Date(row.last_seen_at).getTime() > LAST_SEEN_WRITE_INTERVAL_SECONDS * 1000) {
     await c.env.DB.prepare(`UPDATE doctor_sessions SET last_seen_at = ? WHERE id = ?`).bind(now, id).run();
   }
-  return { sessionId: id, doctorId: row.doctor_id, name: row.name, email: row.email };
+  return {
+    sessionId: id, doctorId: row.doctor_id, name: row.name, email: row.email,
+    role: row.role === 'staff' ? 'staff' : 'doctor', practiceId: row.practice_id,
+    mfaEnabled: !!row.totp_enabled_at, practiceRequiresMfa: !!row.require_mfa,
+  };
 }
 
 export async function revokeDoctorSession<E extends { Bindings: Env }>(c: Context<E>): Promise<void> {

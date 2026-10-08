@@ -140,6 +140,19 @@ Public:
   They're stored with the video's row and served behind the same access
   check as the video. Patients switch them on with a Captions button; the
   choice is remembered on that device.
+- **Practices and staff:** a doctor adds colleagues and staff under Team;
+  they get a 7-day join link and choose their own password. Everyone in a
+  practice sees its invites and progress. Staff (`doctors.role = 'staff'`)
+  send invites on a chosen doctor's behalf — the invite and certificate
+  name the doctor (`prescriptions.doctor_id`), and `created_by` records who
+  sent it. Only doctors manage the team. `npm run create-doctor` accepts
+  `--practice "Name"` and `--role staff`.
+- **Two-step sign-in:** authenticator-app codes (TOTP, RFC 6238) after the
+  password, each code usable once, 5 attempts per sign-in, plus 10
+  single-use recovery codes. Secrets are encrypted with a key derived from
+  `OTP_SECRET`. A practice can require it for everyone; until set up, an
+  account can only reach the Security page. A lost phone is reset with
+  `npm run create-doctor -- --reset-2fa --email ...`.
 - **Closing acknowledgment:** after the last video the patient ticks a
   statement that they understand (versioned in `src/understanding.ts`) and
   may send the doctor a question. The doctor is emailed that a question is

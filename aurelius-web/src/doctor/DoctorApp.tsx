@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { ApiError, api } from '../api';
 import { CertificateView, type CertificateResponse } from '../components/CertificateView';
-import { InviteIcon, LogoutIcon, PlayIcon, UsersIcon } from '../components/icons';
+import { InviteIcon, LogoutIcon, PlayIcon, UsersIcon, VerifiedIcon } from '../components/icons';
+import { JoinPractice, Security, Team } from './Account';
 import { ExpiringAlert } from './ExpiringAlert';
 import { InviteModal } from './InviteModal';
 import { InviteContext } from './library';
@@ -16,7 +17,16 @@ import { Videos } from './Videos';
 // Fired by the header's Invite button.
 export const OPEN_INVITE = 'aurelius:open-invite';
 
-export interface Doctor { id: string; name: string; email: string }
+export interface Doctor {
+  id: string;
+  name: string;
+  email: string;
+  role: 'doctor' | 'staff';
+  practice: { id: string; name: string; requireMfa: boolean } | null;
+  doctors: Array<{ id: string; name: string }>;  // who invites can be sent for
+  mfaEnabled: boolean;
+  mfaSetupRequired: boolean;
+}
 
 // Everything under /doctor. Signed-out visitors see the sign-in form at any
 // /doctor path and land on the page they asked for once signed in.
@@ -51,6 +61,8 @@ export function DoctorApp() {
     signedIn.current = true;
     setDoctor(d);
   };
+  // After signing in (or setting up two-step sign-in), load the full account.
+  const reloadMe = useCallback(() => api<Doctor>('/api/doctor/me').then(signIn).catch(() => setDoctor(null)), []);
 
   useEffect(() => {
     setSignedOutHandler(() => {
@@ -68,6 +80,8 @@ export function DoctorApp() {
   }, []);
 
   if (doctor === undefined) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
+  const joining = /^\/doctor\/join\/([^/]+)\/?$/.exec(path);
+  if (joining && !doctor) return <JoinPractice token={decodeURIComponent(joining[1])} onJoined={() => { navigate('/doctor'); reloadMe(); }} />;
   if (doctor === null) {
     // Say where signing in leads, so the header buttons visibly do something
     // before sign-in.
@@ -76,7 +90,7 @@ export function DoctorApp() {
       : path.startsWith('/doctor/patients')
         ? 'Sign in to see your patients.'
         : 'Sign in to see your videos.';
-    return <Login notice={notice} intent={where} onSignedIn={(d) => { setNotice(''); signIn(d); }} />;
+    return <Login notice={notice} intent={where} onSignedIn={() => { setNotice(''); reloadMe(); }} />;
   }
 
   const signOut = async () => {
@@ -96,8 +110,13 @@ export function DoctorApp() {
   const cert = /^\/doctor\/patients\/([^/]+)\/certificate\/?$/.exec(path);
   const procedure = /^\/doctor\/procedures\/([^/]+)\/?$/.exec(path);
   const onPatients = path.startsWith('/doctor/patients');
+  const onTeam = path.startsWith('/doctor/team');
+  const onSecurity = path.startsWith('/doctor/security');
   let page;
-  if (path === '/doctor/patients' || path === '/doctor/patients/') page = <Patients key={refresh} />;
+  if (doctor.mfaSetupRequired) page = <Security forced onEnabled={reloadMe} />;
+  else if (onTeam) page = <Team role={doctor.role} />;
+  else if (onSecurity) page = <Security onEnabled={reloadMe} />;
+  else if (path === '/doctor/patients' || path === '/doctor/patients/') page = <Patients key={refresh} />;
   else if (procedure) page = <ProcedurePage key={`${procedure[1]}-${refresh}`} id={decodeURIComponent(procedure[1])} />;
   else if (cert) {
     const id = decodeURIComponent(cert[1]);
@@ -116,11 +135,13 @@ export function DoctorApp() {
     <InviteContext.Provider value={openInvite}>
       <div className="doc-layout">
         <nav className="sidebar no-print" aria-label="Doctor portal">
-          <Link to="/doctor" className={`nav-item ${!onPatients ? 'active' : ''}`}><PlayIcon /> Videos</Link>
+          <Link to="/doctor" className={`nav-item ${!onPatients && !onTeam && !onSecurity ? 'active' : ''}`}><PlayIcon /> Videos</Link>
           <Link to="/doctor/patients" className={`nav-item ${onPatients ? 'active' : ''}`}><UsersIcon /> Patients</Link>
           <button className="nav-item nav-invite" onClick={() => openInvite()}><InviteIcon /> Invite patient</button>
+          <Link to="/doctor/team" className={`nav-item ${onTeam ? 'active' : ''}`}><UsersIcon /> Team</Link>
+          <Link to="/doctor/security" className={`nav-item ${onSecurity ? 'active' : ''}`}><VerifiedIcon /> Security</Link>
           <div className="sidebar-spacer" />
-          <span className="sidebar-user">{doctor.name}</span>
+          <span className="sidebar-user">{doctor.name}{doctor.role === 'staff' ? ' · staff' : ''}{doctor.practice ? <><br />{doctor.practice.name}</> : null}</span>
           <button className="nav-item" onClick={signOut}><LogoutIcon /> Sign out</button>
           <div className="help-card">
             <strong>NEED HELP?</strong>
@@ -133,7 +154,7 @@ export function DoctorApp() {
         </div>
       </div>
       {inviteFor !== undefined && (
-        <InviteModal initialProcedureId={inviteFor || undefined} onClose={closeInvite} onSent={sentInvite} />
+        <InviteModal initialProcedureId={inviteFor || undefined} doctors={doctor.doctors} self={doctor} onClose={closeInvite} onSent={sentInvite} />
       )}
     </InviteContext.Provider>
   );

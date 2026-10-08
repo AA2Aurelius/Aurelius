@@ -6,7 +6,9 @@ import { Env, clientIp, hoursFromNow, hoursUntil, isEmail, maskEmail, nowIso, ra
 import { DUMMY_PASSWORD_HASH, verifyPassword } from '../password';
 import { hitRateLimit, overLimit, peekRateLimit } from '../ratelimit';
 import { createDoctorSession, revokeDoctorSession } from '../sessions';
-import { AppEnv, Prescription, readJson, requireDoctor } from './common';
+import { AppEnv, Prescription, practiceScope, readJson, requireDoctor } from './common';
+import { registerAccountRoutes, registerSignInRoutes, startMfaChallenge } from './accounts';
+import type { DoctorSession } from '../sessions';
 import { registerEvergreenRoutes, registerPreviewRoutes } from './evergreen';
 
 export const doctor = new Hono<AppEnv>();
@@ -33,8 +35,8 @@ doctor.post('/login', async (c) => {
     return c.json({ error: 'Too many failed sign-in attempts. Try again in 15 minutes.' }, 429);
   }
 
-  const doc = await c.env.DB.prepare(`SELECT id, name, email, password_hash, disabled_at FROM doctors WHERE email = ?`)
-    .bind(email).first<{ id: string; name: string; email: string; password_hash: string; disabled_at: string | null }>();
+  const doc = await c.env.DB.prepare(`SELECT id, name, email, password_hash, disabled_at, totp_enabled_at FROM doctors WHERE email = ?`)
+    .bind(email).first<{ id: string; name: string; email: string; password_hash: string; disabled_at: string | null; totp_enabled_at: string | null }>();
   // Always run the hash, so response time doesn't reveal whether the email exists.
   const passwordOk = await verifyPassword(password, doc?.password_hash ?? DUMMY_PASSWORD_HASH);
 
@@ -44,21 +46,42 @@ doctor.post('/login', async (c) => {
     return c.json({ error: 'Invalid email or password.' }, 401);
   }
 
+  // Two-step sign-in: the password was right; now the authenticator code.
+  if (doc.totp_enabled_at) {
+    await startMfaChallenge(c, doc.id);
+    return c.json({ mfaRequired: true });
+  }
   await createDoctorSession(c, doc.id);
   return c.json({ doctor: { id: doc.id, name: doc.name, email: doc.email } });
 });
 
+// The second sign-in step, and joining a practice from an emailed invite.
+registerSignInRoutes(doctor);
+
 // Every route below requires a signed-in doctor.
 doctor.use('*', requireDoctor);
+
+// The practice's team, and two-step sign-in setup.
+registerAccountRoutes(doctor);
 
 doctor.post('/logout', async (c) => {
   await revokeDoctorSession(c);
   return c.json({ ok: true });
 });
 
-doctor.get('/me', (c) => {
+doctor.get('/me', async (c) => {
   const d = c.get('doctor');
-  return c.json({ id: d.doctorId, name: d.name, email: d.email });
+  const practice = d.practiceId
+    ? await c.env.DB.prepare(`SELECT id, name, require_mfa FROM practices WHERE id = ?`).bind(d.practiceId).first<{ id: string; name: string; require_mfa: number }>()
+    : null;
+  return c.json({
+    id: d.doctorId, name: d.name, email: d.email, role: d.role,
+    practice: practice ? { id: practice.id, name: practice.name, requireMfa: !!practice.require_mfa } : null,
+    // The doctors an invite can be sent for: everyone in the practice, or just this doctor.
+    doctors: await prescribingDoctors(c.env, d),
+    mfaEnabled: d.mfaEnabled,
+    mfaSetupRequired: d.practiceRequiresMfa && !d.mfaEnabled,
+  });
 });
 
 // --------------------------------------------------------------- library
@@ -108,6 +131,7 @@ registerPreviewRoutes(doctor, '/preview');
 // launch), so they can still be found.
 doctor.get('/patients', async (c) => {
   const archived = c.req.query('archived') === '1';
+  const scope = practiceScope(c.get('doctor'));
   const { results } = await c.env.DB.prepare(
     `SELECT pr.id, pr.patient_name, pr.patient_email, pr.created_at, pr.expires_at, pr.revoked_at, pr.revoked_reason, pr.archived_at,
             pr.procedure_id, proc.name AS procedure_name,
@@ -116,13 +140,16 @@ doctor.get('/patients', async (c) => {
                WHERE vp.prescription_id = pr.id AND vp.understood_at IS NOT NULL) AS videos_done,
             (SELECT COUNT(*) FROM video_progress vp WHERE vp.prescription_id = pr.id) AS videos_total,
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at,
-            (SELECT COUNT(*) FROM patient_questions pq WHERE pq.prescription_id = pr.id AND pq.answered_at IS NULL) AS open_questions
+            (SELECT COUNT(*) FROM patient_questions pq WHERE pq.prescription_id = pr.id AND pq.answered_at IS NULL) AS open_questions,
+            pd.name AS doctor_name, sb.name AS sent_by_name
      FROM prescriptions pr
      JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.doctor_id = ? AND (pr.archived_at IS NOT NULL) = ?
+     JOIN doctors pd ON pd.id = pr.doctor_id
+     LEFT JOIN doctors sb ON sb.id = pr.created_by
+     WHERE ${scope.sql} AND (pr.archived_at IS NOT NULL) = ?
        AND NOT EXISTS (SELECT 1 FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id)
      ORDER BY pr.created_at DESC`
-  ).bind(c.get('doctor').doctorId, archived ? 1 : 0).all();
+  ).bind(...scope.binds, archived ? 1 : 0).all();
   return c.json(results.map((r: any) => ({ ...r, hours_left: Math.max(0, hoursUntil(r.expires_at)) })));
 });
 
@@ -133,10 +160,11 @@ doctor.get('/prescriptions/:id', async (c) => {
             pr.replaces_prescription_id, pr.archived_at, pr.acknowledged_at,
             (SELECT id FROM prescriptions nx WHERE nx.replaces_prescription_id = pr.id) AS replaced_by,
             (SELECT issued_at FROM certificates cert WHERE cert.prescription_id = pr.id) AS certified_at,
-            proc.name AS procedure_name
+            proc.name AS procedure_name, pd.name AS doctor_name, sb.name AS sent_by_name
      FROM prescriptions pr JOIN procedures proc ON proc.id = pr.procedure_id
-     WHERE pr.id = ? AND pr.doctor_id = ?`
-  ).bind(c.req.param('id'), c.get('doctor').doctorId).first<any>();
+     JOIN doctors pd ON pd.id = pr.doctor_id LEFT JOIN doctors sb ON sb.id = pr.created_by
+     WHERE pr.id = ? AND ${practiceScope(c.get('doctor')).sql}`
+  ).bind(c.req.param('id'), ...practiceScope(c.get('doctor')).binds).first<any>();
   if (!p) return c.json({ error: 'Not found.' }, 404);
 
   const { results: videos } = await c.env.DB.prepare(
@@ -189,8 +217,7 @@ doctor.get('/prescriptions/:id', async (c) => {
 
 // The doctor has answered a patient's question (by phone, at the visit...).
 doctor.post('/prescriptions/:id/questions/:questionId/answered', async (c) => {
-  const owned = await c.env.DB.prepare(`SELECT id FROM prescriptions WHERE id = ? AND doctor_id = ?`)
-    .bind(c.req.param('id'), c.get('doctor').doctorId).first<{ id: string }>();
+  const owned = await getOwnedPrescription(c.env, c.req.param('id'), c.get('doctor'));
   if (!owned) return c.json({ error: 'Not found.' }, 404);
   const done = await c.env.DB.prepare(`UPDATE patient_questions SET answered_at = COALESCE(answered_at, ?) WHERE id = ? AND prescription_id = ?`)
     .bind(nowIso(), c.req.param('questionId'), owned.id).run();
@@ -200,8 +227,7 @@ doctor.post('/prescriptions/:id/questions/:questionId/answered', async (c) => {
 
 // The full certificate (the public verify page shows only a summary).
 doctor.get('/prescriptions/:id/certificate', async (c) => {
-  const owned = await c.env.DB.prepare(`SELECT id FROM prescriptions WHERE id = ? AND doctor_id = ?`)
-    .bind(c.req.param('id'), c.get('doctor').doctorId).first<{ id: string }>();
+  const owned = await getOwnedPrescription(c.env, c.req.param('id'), c.get('doctor'));
   if (!owned) return c.json({ error: 'Not found.' }, 404);
 
   const row = await issueCertificateIfComplete(c.env, owned.id);
@@ -219,8 +245,9 @@ doctor.get('/prescriptions/:id/certificate', async (c) => {
 // ------------------------------------------------------------- prescribe
 
 interface NewPrescription {
-  doctorId: string;
+  doctorId: string;     // the prescribing doctor
   doctorName: string;
+  createdBy: string;    // the account that sent it (the doctor, or staff)
   procedure: { id: string; name: string };
   patientName: string;
   patientEmail: string;
@@ -262,9 +289,9 @@ async function createPrescription(env: Env, input: NewPrescription): Promise<
         return [
           ...(input.replaces ? await input.replaces.stmts(prescriptionId) : []),
           env.DB.prepare(
-            `INSERT INTO prescriptions (id, doctor_id, procedure_id, patient_name, patient_email, link_token_hash, created_at, expires_at, replaces_prescription_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(prescriptionId, input.doctorId, input.procedure.id, input.patientName, input.patientEmail, tokenHash, createdAt, expiresAt, input.replaces?.id ?? null),
+            `INSERT INTO prescriptions (id, doctor_id, procedure_id, patient_name, patient_email, link_token_hash, created_at, expires_at, replaces_prescription_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(prescriptionId, input.doctorId, input.procedure.id, input.patientName, input.patientEmail, tokenHash, createdAt, expiresAt, input.replaces?.id ?? null, input.createdBy),
           ...videos.map((v) =>
             env.DB.prepare(`INSERT INTO video_progress (id, prescription_id, video_id) VALUES (?, ?, ?)`).bind(uuid(), prescriptionId, v.id)
           ),
@@ -311,8 +338,20 @@ function revokePatientSessions(env: Env, prescriptionId: string, at: string): D1
   return env.DB.prepare(`UPDATE patient_sessions SET revoked_at = ? WHERE prescription_id = ? AND revoked_at IS NULL`).bind(at, prescriptionId);
 }
 
-async function getOwnedPrescription(env: Env, id: string, doctorId: string): Promise<Prescription | null> {
-  return env.DB.prepare(`SELECT * FROM prescriptions WHERE id = ? AND doctor_id = ?`).bind(id, doctorId).first<Prescription>();
+// One of the invites this account may see: its own, or its practice's.
+async function getOwnedPrescription(env: Env, id: string, d: DoctorSession): Promise<Prescription | null> {
+  const scope = practiceScope(d);
+  return env.DB.prepare(`SELECT * FROM prescriptions pr WHERE pr.id = ? AND ${scope.sql}`).bind(id, ...scope.binds).first<Prescription>();
+}
+
+// The doctors this account can send invites for: everyone with the doctor
+// role in its practice, or itself when working alone.
+async function prescribingDoctors(env: Env, d: DoctorSession): Promise<Array<{ id: string; name: string }>> {
+  if (!d.practiceId) return d.role === 'doctor' ? [{ id: d.doctorId, name: d.name }] : [];
+  const { results } = await env.DB.prepare(
+    `SELECT id, name FROM doctors WHERE practice_id = ? AND role = 'doctor' AND disabled_at IS NULL ORDER BY name`
+  ).bind(d.practiceId).all<{ id: string; name: string }>();
+  return results;
 }
 
 // Each invite sends an email, so a doctor account (including a shared demo
@@ -338,8 +377,18 @@ doctor.post('/prescribe', async (c) => {
   const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(procedureId).first<{ id: string; name: string }>();
   if (!procedure) return c.json({ error: 'Unknown procedure.' }, 404);
 
+  // Staff send invites on behalf of one of the practice's doctors; a doctor
+  // may send for a colleague in the practice, or (by default) for themself.
+  const me = c.get('doctor');
+  const allowed = await prescribingDoctors(c.env, me);
+  const wanted = typeof body.doctor_id === 'string' && body.doctor_id ? body.doctor_id : me.role === 'doctor' ? me.doctorId : '';
+  const prescriber = allowed.find((d) => d.id === wanted);
+  if (!prescriber) {
+    return c.json({ error: me.role === 'staff' ? 'Choose the doctor this invite is from.' : 'That doctor is not in your practice.' }, 400);
+  }
+
   const result = await createPrescription(c.env, {
-    doctorId: c.get('doctor').doctorId, doctorName: c.get('doctor').name, procedure, patientName, patientEmail, ip: clientIp(c.req.raw),
+    doctorId: prescriber.id, doctorName: prescriber.name, createdBy: me.doctorId, procedure, patientName, patientEmail, ip: clientIp(c.req.raw),
   });
   if (!result.ok) return c.json({ error: result.error }, result.status);
   // The link is shown to the doctor once, here. It can't be retrieved later.
@@ -355,7 +404,7 @@ doctor.post('/prescribe', async (c) => {
 // set that's already certified, and each link can be replaced only once.
 doctor.post('/prescriptions/:id/resend', async (c) => {
   const doctor = c.get('doctor');
-  const old = await getOwnedPrescription(c.env, c.req.param('id'), doctor.doctorId);
+  const old = await getOwnedPrescription(c.env, c.req.param('id'), doctor);
   if (!old) return c.json({ error: 'Not found.' }, 404);
   if (await tooManyInvites(c.env, doctor.doctorId)) return c.json({ error: TOO_MANY_INVITES }, 429);
   if (await getCertificateRow(c.env, old.id)) return c.json({ error: 'This patient has already completed every video.' }, 409);
@@ -369,9 +418,12 @@ doctor.post('/prescriptions/:id/resend', async (c) => {
   const procedure = await c.env.DB.prepare(`SELECT id, name FROM procedures WHERE id = ?`).bind(old.procedure_id).first<{ id: string; name: string }>();
   if (!procedure) return c.json({ error: 'Unknown procedure.' }, 404);
 
+  // The new link comes from the same prescribing doctor, whoever resends it.
+  const prescriber = await c.env.DB.prepare(`SELECT id, name FROM doctors WHERE id = ?`).bind(old.doctor_id).first<{ id: string; name: string }>();
+  if (!prescriber) return c.json({ error: 'Not found.' }, 404);
   const ip = clientIp(c.req.raw);
   const result = await createPrescription(c.env, {
-    doctorId: doctor.doctorId, doctorName: doctor.name, procedure, patientName: old.patient_name, patientEmail, ip,
+    doctorId: prescriber.id, doctorName: prescriber.name, createdBy: doctor.doctorId, procedure, patientName: old.patient_name, patientEmail, ip,
     replaces: {
       id: old.id,
       stmts: async (newId) => {
@@ -401,7 +453,7 @@ doctor.post('/prescriptions/:id/resend', async (c) => {
 // patient keeps access to their certificate.
 doctor.post('/prescriptions/:id/cancel', async (c) => {
   const doctor = c.get('doctor');
-  const p = await getOwnedPrescription(c.env, c.req.param('id'), doctor.doctorId);
+  const p = await getOwnedPrescription(c.env, c.req.param('id'), doctor);
   if (!p) return c.json({ error: 'Not found.' }, 404);
   if (p.revoked_at) return c.json({ ok: true, alreadyCancelled: true, revokedReason: p.revoked_reason });
   if (await getCertificateRow(c.env, p.id)) return c.json({ error: 'This patient has already completed every video.' }, 409);

@@ -44,6 +44,8 @@ export function Patients() {
   if (error) return <div className="card"><p className="error">{error}</p></div>;
   if (!rows) return <div className="center"><div className="spinner" aria-label="Loading" /></div>;
 
+  // Show who each invite is from when the practice has more than one doctor.
+  const multiDoctor = new Set([...rows, ...archived].map((r) => r.doctor_name)).size > 1;
   const now = new Date();
   const thisMonth = rows.filter((r) => { const d = new Date(r.created_at); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); }).length;
   const q = query.trim().toLowerCase();
@@ -125,6 +127,7 @@ export function Patients() {
                       <a href={`/doctor/patients/${encodeURIComponent(r.id)}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); open(r); }} className="h-name">{r.patient_name}</a>
                       {(r.open_questions ?? 0) > 0 && <span className="h-question" title="The patient sent a question">💬 Has a question</span>}
                       <span className="h-email">{r.patient_email}</span>
+                      {r.doctor_name && multiDoctor && <span className="h-email">For {r.doctor_name}{r.sent_by_name && r.sent_by_name !== r.doctor_name ? ` · sent by ${r.sent_by_name}` : ''}</span>}
                     </td>
                     <td>{formatDate(r.created_at)}</td>
                     <td>{r.procedure_name}</td>

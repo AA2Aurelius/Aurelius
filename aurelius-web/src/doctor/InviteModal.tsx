@@ -8,7 +8,15 @@ interface Sent { prescriptionId: string; watchUrl: string; expiresAt: string; em
 
 // The Invite pop-up: patient name and email, and the procedure whose videos
 // they should watch, picked from a list with thumbnails.
-export function InviteModal({ initialProcedureId, onClose, onSent }: { initialProcedureId?: string; onClose: () => void; onSent: () => void }) {
+export function InviteModal({ initialProcedureId, doctors, self, onClose, onSent }: {
+  initialProcedureId?: string;
+  // Who the invite can come from: the practice's doctors (staff must pick one).
+  doctors: Array<{ id: string; name: string }>;
+  self: { id: string; role: 'doctor' | 'staff' };
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [fromDoctor, setFromDoctor] = useState(self.role === 'doctor' ? self.id : doctors.length === 1 ? doctors[0].id : '');
   const [procedures, setProcedures] = useState<Procedure[] | null>(null);
   const [thisMonth, setThisMonth] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -42,7 +50,7 @@ export function InviteModal({ initialProcedureId, onClose, onSent }: { initialPr
     setError('');
     try {
       const r = await doctorApi<Omit<Sent, 'patientName' | 'patientEmail'>>('/prescribe', {
-        json: { patient_name: name.trim(), patient_email: email.trim(), procedure_id: procedureId },
+        json: { patient_name: name.trim(), patient_email: email.trim(), procedure_id: procedureId, ...(fromDoctor ? { doctor_id: fromDoctor } : {}) },
       });
       setSent({ ...r, patientName: name.trim(), patientEmail: email.trim() });
       setThisMonth((n) => (n ?? 0) + 1);
@@ -77,6 +85,15 @@ export function InviteModal({ initialProcedureId, onClose, onSent }: { initialPr
           <SentView sent={sent} onAgain={again} onClose={onClose} />
         ) : (
           <form className="stack" onSubmit={submit}>
+            {(self.role === 'staff' || doctors.length > 1) && (
+              <div className="float-field">
+                <label htmlFor="pdoctor">From doctor</label>
+                <select id="pdoctor" value={fromDoctor} onChange={(e) => setFromDoctor(e.target.value)} required>
+                  <option value="" disabled>Choose the doctor</option>
+                  {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}{d.id === self.id ? ' (you)' : ''}</option>)}
+                </select>
+              </div>
+            )}
             <div className="float-field">
               <label htmlFor="pname">Patient's full name</label>
               <input id="pname" ref={firstField} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required />
