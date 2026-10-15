@@ -88,6 +88,11 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
   const [skipNotice, setSkipNotice] = useState(false);
   const [skipsBlocked, setSkipsBlocked] = useState(0);
   const [blockedFlash, setBlockedFlash] = useState(false);
+  // The player reached the end and is waiting for the server to confirm the
+  // video is complete (usually a second or two). Nothing to press meanwhile:
+  // playing an ended video would start it over.
+  const [ended, setEnded] = useState(false);
+  const [slowFinish, setSlowFinish] = useState(false);
 
   const base = `/api/watch/${encodeURIComponent(token)}`;
   const stateRef = useRef<PlaybackState | null>(null);
@@ -250,6 +255,7 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
     };
     const onEnded = () => {
       setPlaying(false);
+      setEnded(true);
       sendHeartbeat();
     };
     v.addEventListener('play', onPlay);
@@ -271,6 +277,18 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
       v.removeEventListener('ended', onEnded);
     };
   }, [base, video.id, sendHeartbeat]);
+
+  // Once the video has ended, check in every second until the server
+  // confirms completion, instead of waiting for the next 5 s heartbeat.
+  useEffect(() => {
+    if (!ended || phase !== 'ready') return;
+    const id = setInterval(sendHeartbeat, 1000);
+    const slow = setTimeout(() => setSlowFinish(true), 15000);
+    return () => {
+      clearInterval(id);
+      clearTimeout(slow);
+    };
+  }, [ended, phase, sendHeartbeat]);
 
   // ---- pause when the page goes into the background
   useEffect(() => {
@@ -295,7 +313,7 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
 
   const play = () => {
     const v = videoRef.current;
-    if (!v || checkRef.current) return;
+    if (!v || checkRef.current || v.ended) return;
     setAwayPaused(false);
     v.play().catch(() => {});
     // Report the change now rather than at the next tick.
@@ -370,18 +388,32 @@ export function PacedPlayer({ token, video, total, nextTitle, onComplete, onDone
         </video>
 
         {phase === 'starting' && <div className="overlay"><div className="spinner" aria-label="Loading" /></div>}
-        {phase === 'ready' && !playing && !check && !awayPaused && (
+        {phase === 'ready' && !playing && !check && !awayPaused && !ended && (
           <button className="overlay overlay-button" onClick={play} aria-label="Play">
             <span className="big-play">▶</span>
           </button>
         )}
         {phase === 'ready' && playing && buffering && <div className="overlay passive"><div className="spinner" aria-label="Loading" /></div>}
-        {phase === 'ready' && !playing && !buffering && !awayPaused && !check && (
+        {phase === 'ready' && !playing && !buffering && !awayPaused && !check && !ended && (
           <button className="big-play" onClick={play} aria-label="Play the video">
             <span aria-hidden="true">▶</span> {position > 1 ? 'Continue' : 'Play'}
           </button>
         )}
-        {awayPaused && !check && phase !== 'complete' && (
+        {phase === 'ready' && ended && !check && (
+          <div className="overlay modal" role="status">
+            <div className="overlay-card">
+              <div className="spinner" aria-hidden="true" />
+              <p>Saving your progress…</p>
+              {slowFinish && (
+                <>
+                  <p className="note">This is taking longer than usual. Your progress is saved once the video is confirmed.</p>
+                  <button className="link-button" onClick={leave}>Back to your videos</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {awayPaused && !check && !ended && phase !== 'complete' && (
           <div className="overlay modal">
             <div className="overlay-card">
               <p>Paused while you were away.</p>
