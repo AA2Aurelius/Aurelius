@@ -1,11 +1,17 @@
 // Creates a doctor account, or resets an existing doctor's password. There
 // is deliberately no public sign-up or password-reset route.
 //
+//   npm run create-doctor -- --invite --name "Dr. Jane Smith" --email jane@clinic.com --practice "Smith Orthopedics" [--remote]
 //   npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]
 //   npm run create-doctor -- --reset --email jane@clinic.com [--remote]
 //   npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]
 //   npm run create-doctor -- --name "Pat Lee" --email pat@clinic.com --practice "Smith Orthopedics" --role staff [--remote]
 //   npm run create-doctor -- --reset-2fa --email jane@clinic.com [--remote]
+//
+// --invite (recommended) asks for no password: the person gets an email
+// within about 15 minutes with a link (valid 7 days) to choose their own
+// password, so nobody else ever handles it. The live site's 15-minute job
+// sends it; locally, nothing sends it.
 //
 // --practice puts the new account in that practice (created if there's no
 // practice by that name yet); everyone in a practice sees its invites.
@@ -67,6 +73,7 @@ const name = arg('name');
 const email = arg('email')?.trim().toLowerCase();
 const reset = process.argv.includes('--reset');
 const reset2fa = process.argv.includes('--reset-2fa');
+const invite = process.argv.includes('--invite');
 const practiceName = arg('practice')?.trim();
 const role = arg('role') ?? 'doctor';
 if (role !== 'doctor' && role !== 'staff') {
@@ -77,7 +84,8 @@ const newEmail = arg('new-email')?.trim().toLowerCase();
 const target = process.argv.includes('--remote') ? '--remote' : '--local';
 const isEmail = (e) => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 if ((!reset && !reset2fa && !newEmail && !name) || !isEmail(email) || (newEmail !== undefined && !isEmail(newEmail))) {
-  console.error('Usage: npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]');
+  console.error('Usage: npm run create-doctor -- --invite --name "Dr. Jane Smith" --email jane@clinic.com --practice "Smith Orthopedics" [--remote]');
+  console.error('   or: npm run create-doctor -- --name "Dr. Jane Smith" --email jane@clinic.com [--remote]');
   console.error('   or: npm run create-doctor -- --reset --email jane@clinic.com [--remote]');
   console.error('   or: npm run create-doctor -- --email old@clinic.com --new-email new@clinic.com [--remote]');
   process.exit(1);
@@ -95,8 +103,12 @@ function run(sql) {
 }
 
 function findDoctor(address) {
+  return queryOne(`SELECT name FROM doctors WHERE email = ${sqlString(address)}`);
+}
+
+function queryOne(sql) {
   const r = spawnSync('npx', ['wrangler', 'd1', 'execute', 'aurelius-db', target, '--json',
-    `--command=SELECT name FROM doctors WHERE email = ${sqlString(address)}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+    `--command=${sql}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   if (r.status !== 0) process.exit(r.status ?? 1);
   try {
     return JSON.parse(r.stdout.slice(r.stdout.indexOf('['))).flatMap((x) => x.results ?? [])[0] ?? null;
@@ -121,6 +133,38 @@ if (reset2fa) {
     `UPDATE doctor_sessions SET revoked_at = ${sqlString(now)} WHERE revoked_at IS NULL AND doctor_id = (SELECT id FROM doctors WHERE email = ${sqlString(email)});\n`
   );
   console.log(`Two-step sign-in is off for ${doc.name} <${email}>, and they were signed out everywhere.`);
+  process.exit(0);
+}
+
+if (invite) {
+  if (reset || reset2fa || newEmail || !name) {
+    console.error('--invite needs --name and --email (and usually --practice), and no other option.');
+    process.exit(1);
+  }
+  rl.close();
+  if (findDoctor(email)) {
+    console.error(`Someone already has an account with ${email}${where}.`);
+    process.exit(1);
+  }
+  if (queryOne(`SELECT id FROM invite_requests WHERE email = ${sqlString(email)} AND sent_at IS NULL`)) {
+    console.error(`An invitation to ${email} is already waiting to be sent${where}.`);
+    process.exit(1);
+  }
+  const practice = practiceName || `${name}'s practice`;
+  const now = new Date().toISOString();
+  run(
+    `INSERT INTO practices (id, name, created_at) SELECT ${sqlString(randomUUID())}, ${sqlString(practice)}, ${sqlString(now)} ` +
+    `WHERE NOT EXISTS (SELECT 1 FROM practices WHERE name = ${sqlString(practice)} COLLATE NOCASE);\n` +
+    `INSERT INTO invite_requests (id, practice_id, name, email, role, created_at) VALUES (` +
+    `${sqlString(randomUUID())}, (SELECT id FROM practices WHERE name = ${sqlString(practice)} COLLATE NOCASE ORDER BY created_at LIMIT 1), ` +
+    `${sqlString(name)}, ${sqlString(email)}, ${sqlString(role)}, ${sqlString(now)});\n`
+  );
+  console.log(
+    `Invitation queued for ${name} <${email}> (${role}, ${practice}).\n` +
+    (target === '--remote'
+      ? 'Within about 15 minutes they get an email with a link to choose their own password (valid 7 days).'
+      : 'This is the local database: nothing sends it. Add --remote for the live site.')
+  );
   process.exit(0);
 }
 

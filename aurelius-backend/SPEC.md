@@ -158,6 +158,13 @@ Public:
   name the doctor (`prescriptions.doctor_id`), and `created_by` records who
   sent it. Only doctors manage the team. `npm run create-doctor` accepts
   `--practice "Name"` and `--role staff`.
+- **Inviting a customer's first doctor:** `npm run create-doctor -- --invite
+  --name ... --email ... --practice ... --remote` asks for no password. It
+  queues an `invite_requests` row; the Worker's 15-minute job turns it into
+  an account invitation and emails a 7-day, single-use join link (the same
+  join page staff use), so the doctor chooses their own password. A failed
+  send is withdrawn and retried (up to 5 tries); an email that already has an
+  account is skipped. Migration 0012.
 - **Two-step sign-in:** authenticator-app codes (TOTP, RFC 6238) after the
   password, each code usable once, 5 attempts per sign-in, plus 10
   single-use recovery codes. Secrets are encrypted with a key derived from

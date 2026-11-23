@@ -15,7 +15,7 @@ import { AppEnv, readJson } from './common';
 const MFA_COOKIE = '__Host-aur_mfa';
 const MFA_CHALLENGE_SECONDS = 5 * 60;
 const MFA_MAX_ATTEMPTS = 5;
-const INVITE_DAYS = 7;
+export const INVITE_DAYS = 7;
 const MIN_PASSWORD = 12;
 
 type Ctx = Context<AppEnv>;
