@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { logEvent } from './audit';
 import { rememberSigningKey } from './certificate';
 import { sendEmail } from './email';
+import { sendRequestedInvites } from './inviteRequests';
 import { Env, hoursFromNow, hoursUntil, nowIso } from './lib';
 import type { AppEnv } from './routes/common';
 import { doctor } from './routes/doctor';
@@ -111,6 +112,8 @@ export default {
   fetch: app.fetch,
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runReminderSweep(env));
+    // Invitations queued with `npm run create-doctor -- --invite`.
+    ctx.waitUntil(sendRequestedInvites(env).catch((err) => console.error('sendRequestedInvites', err)));
     // Keeps the current signing key's public half on record (see certificate.ts).
     ctx.waitUntil(rememberSigningKey(env).catch((err) => console.error('rememberSigningKey', err)));
   },
